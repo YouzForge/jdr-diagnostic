@@ -130,7 +130,10 @@ export async function enregistrerModification({ session, profil, col, pseudo, fi
   const prep = preparerEcriture(ouverture.modele, saisies, col);
   if (Object.keys(prep.erreurs).length) return { erreurs: prep.erreurs };
   if (!Object.keys(prep.champs).length && !Object.keys(prep.sections).length) return { inchange: true };
-  const texte = modifierFiche(ouverture.texte, { champs: prep.champs, sections: prep.sections });
+  // le nom change : le titre « # nom » du texte, s'il répétait l'ancien nom, suit (sinon l'ancien nom resterait affiché et ne serait plus modifiable)
+  const cleNom = col ? cleDuNom(col) : null, champNom = cleNom && ouverture.modele.champs.find(c => c.cle === cleNom);
+  const titre = champNom && prep.nom != null && champNom.initial !== "" && prep.nom !== champNom.initial ? { ancien: champNom.initial, nouveau: prep.nom } : null;
+  const texte = modifierFiche(ouverture.texte, { champs: prep.champs, sections: prep.sections, titre });
   await session.depot.modifier(chemin(profil, session, col, pseudo, fichier), texte, ouverture.etag);
   return { fichier };
 }

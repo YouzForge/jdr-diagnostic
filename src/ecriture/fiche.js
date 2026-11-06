@@ -73,14 +73,26 @@ function remplacerSection(corps, titre, texte) {
   return corps.slice(0, m.index) + enTete + interieur + corps.slice(fin);
 }
 
+/** Renomme le premier « # titre » de l'introduction (avant la 1re section « ## ») s'il vaut exactement `ancien`. Rien d'autre ne bouge. */
+function renommerTitre(corps, ancien, nouveau) {
+  if (typeof ancien !== "string" || typeof nouveau !== "string" || ancien === nouveau) return corps;
+  verifierValeur("titre", nouveau);
+  const fin = corps.search(/^## /m);
+  const intro = fin === -1 ? corps : corps.slice(0, fin);
+  const m = intro.match(/^# (.*)$/m);
+  if (!m || m[1].trim() !== ancien.trim()) return corps;
+  return corps.slice(0, m.index) + "# " + nouveau + corps.slice(m.index + m[0].length);
+}
+
 /**
  * Modifie une fiche en conservant tout le reste.
  * @param {string} texte
- * @param {{champs?:Object<string,string|number|boolean>, sections?:Object<string,string>}} changements
+ * @param {{champs?:Object<string,string|number|boolean>, sections?:Object<string,string>, titre?:{ancien:string, nouveau:string}}} changements
+ *   `titre` : renomme le premier « # titre » du texte, seulement s'il porte exactement l'ancien nom (un titre différent est laissé tel quel)
  * @returns {string} le nouveau texte (identique à `texte` si rien ne change)
  * @throws EcritureInvalide si la fiche n'est pas au format à en-tête « --- » (ancien format : jamais réécrit) ou si une valeur est refusée
  */
-export function modifierFiche(texte, { champs = {}, sections = {} } = {}) {
+export function modifierFiche(texte, { champs = {}, sections = {}, titre = null } = {}) {
   if (typeof texte !== "string") refuser("Texte de fiche attendu", "texte_type");
   const { bom, crlf, texte: t } = normaliserFins(texte);
   const m = t.match(ENTETE);
@@ -99,7 +111,8 @@ export function modifierFiche(texte, { champs = {}, sections = {} } = {}) {
     if (idx >= 0) lignes[idx] = ligne; else lignes.push(ligne);
   }
   let corps = t.slice(m[0].length);
-  for (const [titre, contenu] of Object.entries(sections)) corps = remplacerSection(corps, titre, contenu);
+  if (titre) corps = renommerTitre(corps, titre.ancien, titre.nouveau);
+  for (const [titreSection, contenu] of Object.entries(sections)) corps = remplacerSection(corps, titreSection, contenu);
   const sortie = "---\n" + lignes.join("\n") + "\n---\n" + corps;
   // l'en-tête d'origine pouvait ne pas finir par un saut de ligne (« --- » en toute fin de fichier) : on le garde tel quel si le corps est vide
   const final = m[0].endsWith("\n") || corps !== "" ? sortie : sortie.slice(0, -1);
