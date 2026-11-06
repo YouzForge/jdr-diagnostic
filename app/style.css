@@ -7,7 +7,7 @@ body { margin: 0; background: var(--fond); color: var(--texte); font: 17px/1.5 s
 header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: .6rem; padding: .6rem 1rem; background: var(--carte); border-bottom: 1px solid var(--bord); }
 header h1 { font-size: 1.05rem; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 header .qui { font-size: .85rem; color: var(--doux); }
-main { max-width: 44rem; margin: 0 auto; padding: 1rem; }
+main { max-width: 44rem; margin: 0 auto; padding: 1rem; overflow-wrap: anywhere; }
 h2 { font-size: 1.25rem; margin: .4rem 0 .8rem; } h3 { font-size: 1.05rem; margin: 1.2rem 0 .4rem; }
 button, .bouton { font: inherit; min-height: 2.75rem; padding: .5rem 1rem; border-radius: .6rem; border: 1px solid var(--bord); background: var(--carte); color: var(--texte); cursor: pointer; }
 button.principal { background: var(--accent); border-color: var(--accent); color: #fff; }
