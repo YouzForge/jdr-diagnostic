@@ -14,8 +14,10 @@ export function garderCleDeChiffrement(doc) {
   } catch { /* tant pis : on se reconnectera */ }
 }
 
-/** @param {object} fen  la fenêtre du navigateur (window) ; `fen.msal` doit être chargé ; @param {object} configBrute  configuration publique */
-export async function creerAuthNavigateur(fen, configBrute, { autoriserElargi = false } = {}) {
+/** @param {object} fen  la fenêtre du navigateur (window) ; `fen.msal` doit être chargé ; @param {object} configBrute  configuration publique
+ *  Décision D26 : un appareil n'est pas partagé (chacun a le sien). La déconnexion n'efface donc PAS les données de l'appareil (copies de fiches,
+ *  dossiers mémorisés) : on les retrouve à la reconnexion. Elles restent rangées par compte. `effacerALaDeconnexion: true` rétablit l'effacement complet. */
+export async function creerAuthNavigateur(fen, configBrute, { autoriserElargi = false, effacerALaDeconnexion = false } = {}) {
   const config = validerConfigAuth(configBrute, { autoriserElargi });
   if (!fen.msal || !fen.msal.PublicClientApplication) throw new Error("MSAL n'est pas chargé");
   const redirectUri = fen.location.origin + fen.location.pathname.replace(/index\.html$/, "");
@@ -27,7 +29,7 @@ export async function creerAuthNavigateur(fen, configBrute, { autoriserElargi = 
   const memoire = { lire: k => ls.getItem("jdr1_" + k), ecrire: (k, v) => ls.setItem("jdr1_" + k, v), retirer: k => ls.removeItem("jdr1_" + k) };
   const auth = creerAuth({
     app, config, subtle: fen.crypto.subtle, memoire,
-    viderCopieLocale: async () => { creerCache(creerStockageNavigateur(ls), "0".repeat(64)).viderTout(); }
+    viderCopieLocale: async () => { if (effacerALaDeconnexion) creerCache(creerStockageNavigateur(ls), "0".repeat(64)).viderTout(); }
   });
   garderCleDeChiffrement(fen.document);
   const initial = auth.init.bind(auth);

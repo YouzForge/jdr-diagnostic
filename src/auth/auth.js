@@ -6,7 +6,7 @@
 //  - une erreur qui veut dire « se reconnecter » devient une erreur HTTP 401 (jamais servie par la copie locale) ;
 //  - une erreur de réseau n'a PAS de code HTTP (le dépôt peut alors servir la copie locale) ;
 //  - le jeton reste en mémoire (une seule demande à la fois) ; jamais affiché, jamais écrit ailleurs ;
-//  - la déconnexion efface d'abord la copie locale de l'appareil.
+//  - la déconnexion appelle `viderCopieLocale` AVANT de déconnecter (le branchement navigateur n'efface plus rien par défaut : D26).
 
 export const SCOPES_BASE = Object.freeze(["User.Read", "Files.ReadWrite"]);
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

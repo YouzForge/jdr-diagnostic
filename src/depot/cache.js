@@ -1,5 +1,5 @@
 // Copie locale pour la lecture hors connexion. Les entrées sont rangées PAR COMPTE (empreinte) : un autre compte
-// qui se connecte sur le même appareil ne voit jamais les données du précédent (T7), et `vider()` efface tout à la déconnexion.
+// qui se connecte sur le même appareil ne voit jamais les données du précédent (T7), et `viderTout()` (effacement complet) n'est plus appelé à la déconnexion par défaut (D26 : un appareil n'est pas partagé).
 
 /** Stockage en mémoire (tests) ou adaptateur autour de localStorage (navigateur). */
 export function creerStockageMemoire() {
