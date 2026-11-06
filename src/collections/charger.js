@@ -30,7 +30,7 @@ export async function chargerCollection({ depot, profil, role, col, pseudo, simu
   const dossier = cheminCollection(profil, role, col, pseudo);
   const ls = await depot.lister(dossier);
   if (ls.absent) return { fiches: [], perime: false, absent: true, illisibles: [] };
-  const fichiers = ls.donnees.filter(f => !f.dir && /\.md$/i.test(f.name) && !EXCLUS.test(f.name)).sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  const fichiers = ls.donnees.filter(f => !f.dir && /\.md$/i.test(f.name) && !EXCLUS.test(f.name)).sort((a, b) => a.name.localeCompare(b.name, "fr", { numeric: true }));   // Seance_2 avant Seance_10
   let perime = ls.perime; const illisibles = [];
   const fiches = (await pool(fichiers, async f => {
     try {

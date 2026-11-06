@@ -14,5 +14,5 @@ export async function bibliotheque({ session, profil, col, pseudo }) {
 export async function listerJoueurs({ session, profil }) {
   if (session.role !== "mj") return [];
   const r = await session.depot.lister(profil.securite.joueurs);
-  return r.donnees.filter(x => x.dir).map(x => x.name).sort((a, b) => a.localeCompare(b, "fr"));
+  return r.donnees.filter(x => x.dir).map(x => x.name).sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
 }

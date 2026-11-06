@@ -9,7 +9,9 @@ export const norm = s => String(s).toLowerCase().replace(/œ/g, "oe").replace(/�
 const CLES_INTERDITES = new Set(["__proto__", "constructor", "prototype"]);
 
 function scalaire(v) {
-  v = v.trim().replace(/^["']|["']$/g, "");
+  v = v.trim();
+  const q = v.match(/^(["'])(.*)\1$/);   // guillemets retirés seulement s'ils ENTOURENT la valeur (Rôdeur "Le Borgne" garde ses guillemets)
+  if (q) v = q[2];
   if (v === "true") return true;
   if (v === "false") return false;
   if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);

@@ -39,6 +39,11 @@ const contient = (titre, motifs) => motifs.some(m => String(titre).toLowerCase()
 function texteChamp(def, v) {
   if (v == null || v === "") return "";
   if (typeof v === "boolean") return v ? "oui" : "non";
+  const options = String(def.t || "").startsWith("enum:") ? String(def.t).slice(5).split("|") : null;
+  if (options) {   // « en_cours » → « en cours » ; une valeur hors liste est montrée telle quelle, avec la mention qu'elle n'est pas prévue
+    const brut = String(v);
+    return options.includes(brut) ? brut.replace(/_/g, " ") : `${brut} (valeur non prévue)`;
+  }
   return String(v);
 }
 
