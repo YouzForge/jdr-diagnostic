@@ -2,7 +2,7 @@
 // Toute la logique est dans `src/` (testée dans Node) ; ici, seulement l'affichage. RÈGLE : jamais de innerHTML, uniquement du texte
 // (un test vérifie cette règle) : une fiche ne peut donc ni exécuter de code ni charger d'image.
 import { creerAuthNavigateur, creerClientGraph, chargerProfil, ouvrirSession, bibliotheque, listerJoueurs, collectionsVisibles,
-  validerAutorisations, CompteNonAutorise, AccesRefuse, creerStockageNavigateur } from "../src/index.js";
+  validerAutorisations, AccesRefuse, creerStockageNavigateur } from "../src/index.js";
 
 const $ = id => document.getElementById(id);
 const h = (tag, attrs, ...enfants) => {
@@ -50,14 +50,15 @@ const PROBLEMES = {
   marqueur_change: p => `Le dossier « ${p.role === "table" ? "table" : "joueur"} » ne ressemble plus à celui d'avant : redemande un lien au MJ.`,
   lien: p => `Le lien n° ${p.numero} n'ouvre rien avec ce compte. Vérifie que tu es connecté avec le bon compte Microsoft, ou redemande un lien au MJ.`,
   ambigu: p => `Plusieurs dossiers « ${p.role} » sont partagés avec ce compte : demande au MJ d'en retirer un.`,
+  marqueur_sans_pseudo: () => "Un dossier « joueur » partagé avec ce compte n'a pas de pseudo dans son marqueur : il n'est pas utilisé. Demande au MJ de le régénérer.",
   coffre_partage: () => "Attention : le coffre du MJ est partagé avec ce compte. Préviens le MJ tout de suite : cette application ne l'utilisera jamais.",
-  marqueur_illisible: p => `Un dossier retrouvé ${SOURCES[p.source] || "ailleurs"} n'a pas pu être lu (${p.status ? "code " + p.status : "réseau ou blocage"}). ${p.status === 403 ? "C'est sans doute un ancien partage ou raccourci : il est ignoré." : "Il est ignoré ; réessaie si un dossier manque."}`,
+  marqueur_illisible: p => `Un dossier retrouvé ${SOURCES[p.source] || "ailleurs"} n'a pas pu être lu (${p.status ? "code " + p.status + (p.code ? " · " + p.code : "") : "réseau ou blocage"}). ${p.status === 403 ? "C'est sans doute un ancien partage ou raccourci : il est ignoré." : "Il est ignoré ; réessaie si un dossier manque."}`,
   reseau: () => "Microsoft ne répond pas pour le moment. Réessaie dans un instant.",
   dossier_mj_introuvable: () => "Le dossier du JDR est introuvable sur ton OneDrive."
 };
 const NOMS_MANQUE = { table: "la table", joueur: "ton dossier", unique: "le dossier du JDR" };
 
-function ecranLiaison(s, message) {
+async function ecranLiaison(s, message) {
   const zone = h("textarea", { id: "liens", placeholder: "https://1drv.ms/…", autocomplete: "off", autocapitalize: "off", spellcheck: "false", "aria-label": "Liens reçus du MJ" });
   const btn = h("button", { class: "principal" }, "Relier");
   btn.onclick = async () => {
@@ -65,13 +66,21 @@ function ecranLiaison(s, message) {
     if (!liens.length) return;
     btn.disabled = true; await lancer(liens); btn.disabled = false;
   };
+  // D27 : plus d'écran « compte non autorisé ». Un compte sans dossier arrive ici ; la bonne réponse est de relier ses dossiers ou de changer de compte.
+  // L'empreinte (SHA-256 de l'adresse, jamais l'adresse) ne sert qu'à déclarer un compte MJ dans la configuration ; elle ne donne aucun droit.
+  let empreinte = ""; try { empreinte = await auth.empreinte(); } catch { /* sans empreinte */ }
   montrer(h("h2", {}, "Relier tes dossiers"),
     message ? bandeau(message) : null,
     s.problemes.map(p => (PROBLEMES[p.type] ? bandeau(PROBLEMES[p.type](p)) : null)),
     h("p", {}, "Le MJ t'a envoyé ", s.manque.length > 1 ? "deux liens" : "un lien", ". Colle-", s.manque.length > 1 ? "les" : "le", " ici (un par ligne). Tu ne le feras qu'une fois sur cet appareil."),
     h("p", { class: "discret" }, "Il manque : " + s.manque.map(x => NOMS_MANQUE[x] || x).join(" et ") + "."),
     zone, h("p", {}, btn),
-    h("p", { class: "discret" }, "Les liens ne sont pas gardés : l'application mémorise seulement les dossiers retrouvés."));
+    h("p", { class: "discret" }, "Les liens ne sont pas gardés : l'application mémorise seulement les dossiers retrouvés."),
+    h("p", { class: "discret" }, "Les dossiers du MJ ne s'ouvrent qu'avec le compte Microsoft auquel il les a partagés. Ce n'est pas le bon ? ",
+      h("button", { id: "btnChangerCompte", onclick: () => auth.logout() }, "Changer de compte")),
+    empreinte ? h("details", { class: "discret" }, h("summary", {}, "Infos pour le MJ"),
+      h("p", {}, "Empreinte de ce compte (utile seulement pour déclarer un compte MJ) : "),
+      h("p", { id: "empreinte", style: "word-break:break-all;user-select:all" }, empreinte)) : null);
 }
 
 async function ecranMenu(mien = nav) {
@@ -130,18 +139,7 @@ async function route() {
   } catch (e) { gerer(e); }
 }
 
-async function compteNonAutorise() {
-  // L'empreinte (SHA-256 de l'adresse, pas l'adresse) permet au MJ d'autoriser ce compte sans connaître l'adresse écrite dans le code.
-  let empreinte = ""; try { empreinte = await auth.empreinte(); } catch { /* sans empreinte */ }
-  session = null; entete();
-  montrer(h("h2", {}, profil.nom), bandeau("Le compte Microsoft avec lequel tu es connecté n'est pas autorisé pour ce JDR.", "erreur"),
-    h("p", {}, "Si le MJ t'a donné un autre compte, change de compte ci-dessous."),
-    h("p", {}, h("button", { class: "principal", onclick: () => auth.logout() }, "Changer de compte")));
-  if (empreinte) $("contenu").append(h("p", { class: "discret" }, "Si c'est bien le bon compte, envoie cette empreinte au MJ : "), h("p", { class: "discret", id: "empreinte", style: "word-break:break-all;user-select:all" }, empreinte));
-}
-
 function gerer(e) {
-  if (e instanceof CompteNonAutorise) return compteNonAutorise();
   if (e && (e.status === 401 || e.auth)) return ecranConnexion("Reconnexion nécessaire : clique sur « Se connecter ».");
   if (e instanceof AccesRefuse) { if (e.raison === "acces_retire") return lancer([], "L'accès à un dossier a été retiré. Redemande un lien au MJ."); return montrer(bandeau(e.message, "erreur")); }
   montrer(bandeau("Erreur inattendue : " + (e && e.message ? e.message : "inconnue"), "erreur"), h("p", {}, h("button", { onclick: () => lancer([]) }, "Réessayer")));
@@ -151,7 +149,7 @@ async function lancer(liens = [], message) {
   try {
     session = await ouvrirSession({ auth, client, profil, allowed, stockage, liens, cheminMJ: window.JDR_APP.racineMJ || undefined });
     entete();
-    if (session.statut === "a_relier") return ecranLiaison(session, message);
+    if (session.statut === "a_relier") return await ecranLiaison(session, message);
     if (session.statut === "dossier_mj_introuvable") return montrer(session.problemes.map(p => bandeau(PROBLEMES[p.type](p), "erreur")));
     if (location.hash && location.hash !== "#/") return route();
     return ecranMenu(++nav);

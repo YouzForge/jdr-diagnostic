@@ -1,38 +1,25 @@
-// Qui est connecté, et dans quel rôle ? Le rôle vient de la configuration publique (empreintes SHA-256, jamais d'adresse).
+// Qui est connecté, et dans quel rôle ? (D27)
+//   · MJ : un compte dont l'empreinte SHA-256 figure dans la configuration publique (jamais d'adresse e-mail). Il n'y en a qu'un, ou très peu, et elle ne bouge pas.
+//   · joueur : tout autre compte. Il n'a de dossier à lire que ceux que OneDrive lui a réellement partagés ; son pseudo vient du marqueur de son dossier.
+//     Il n'y a donc plus d'empreinte de joueur à récolter ni de configuration à republier quand un joueur arrive.
 // ATTENTION : c'est un contrôle d'AFFICHAGE. La vraie protection est celle des partages OneDrive (voir docs/J2_HYPOTHESES.md) :
 // un joueur qui se ferait passer pour le MJ n'obtiendrait que ce que OneDrive lui accorde, c'est-à-dire ses deux dossiers.
 
 const HASH = /^[0-9a-f]{64}$/;
-// même règle que `cheminCollection` : un pseudo est un nom de dossier simple, sans remontée ni caractère interdit
-export const PSEUDO = /^[^/\\:?#*"<>|\u0000-\u001f.][^/\\:?#*"<>|\u0000-\u001f]*$/;
 
 export class AutorisationsInvalides extends Error { constructor(m) { super(m); this.name = "AutorisationsInvalides"; } }
-export class CompteNonAutorise extends Error { constructor() { super("Ce compte n'est pas autorisé pour ce JDR"); this.name = "CompteNonAutorise"; } }
 
-/** Contrôle `{ mj: [hash], joueurs: { pseudo: hash } }`. Un pseudo invalide ou une empreinte mal formée est refusé : jamais corrigé en silence. */
+/** Contrôle `{ mj: [hash] }`. Une empreinte mal formée est refusée ; l'ancienne liste `joueurs` (avant D27) aussi : jamais ignorée en silence. */
 export function validerAutorisations(a) {
   if (!a || typeof a !== "object") throw new AutorisationsInvalides("Autorisations absentes");
-  const mj = a.mj ?? [], joueurs = a.joueurs ?? {};
+  if ("joueurs" in a) throw new AutorisationsInvalides("allowed.joueurs n'existe plus (D27) : seuls les MJ ont une empreinte ; les joueurs sont reconnus par les dossiers qui leur sont partagés");
+  const mj = a.mj ?? [];
   if (!Array.isArray(mj) || mj.some(h => !HASH.test(String(h)))) throw new AutorisationsInvalides("allowed.mj : empreintes SHA-256 attendues");
-  if (typeof joueurs !== "object" || Array.isArray(joueurs)) throw new AutorisationsInvalides("allowed.joueurs : objet { pseudo: empreinte } attendu");
-  const vus = new Map();
-  for (const [p, h] of Object.entries(joueurs)) {
-    if (!PSEUDO.test(p)) throw new AutorisationsInvalides("pseudo de joueur invalide : « " + p + " »");
-    if (!HASH.test(String(h))) throw new AutorisationsInvalides("allowed.joueurs." + p + " : empreinte SHA-256 attendue");
-    if (vus.has(h)) throw new AutorisationsInvalides("la même empreinte est donnée à deux joueurs (« " + vus.get(h) + " » et « " + p + " »)");
-    vus.set(h, p);
-  }
-  return { mj: [...mj], joueurs: { ...joueurs } };
+  return { mj: [...mj] };
 }
 
-/**
- * @returns {Promise<{role:"mj"}|{role:"joueur",pseudo:string}|null>}  null = compte non autorisé.
- * Un compte listé comme MJ est MJ, même s'il figure aussi parmi les joueurs : le MJ possède le dossier du JDR, il ne gagne aucun droit nouveau.
- */
+/** @returns {Promise<{role:"mj"}|{role:"joueur"}>}  Le pseudo d'un joueur n'est connu qu'une fois son dossier retrouvé (marqueur). */
 export async function determinerRole({ auth, allowed }) {
   const a = validerAutorisations(allowed);
-  const h = await auth.empreinte();
-  if (a.mj.includes(h)) return { role: "mj" };
-  for (const [pseudo, hj] of Object.entries(a.joueurs)) if (hj === h) return { role: "joueur", pseudo };
-  return null;
+  return a.mj.includes(await auth.empreinte()) ? { role: "mj" } : { role: "joueur" };
 }

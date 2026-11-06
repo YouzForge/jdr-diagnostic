@@ -54,12 +54,15 @@ export async function trouverRacines({ client, profil, memorises = [], liens = [
 
   const lus = await pool([...vus.values()], async n => {
     try { return { ...n, marqueur: lireMarqueur(await client.lireTexte(n, NOM_MARQUEUR)) }; }
-    catch (e) { if (estAuth(e)) throw e; return { ...n, marqueur: null, inaccessible: e.status || true }; }
+    catch (e) { if (estAuth(e)) throw e; return { ...n, marqueur: null, inaccessible: e.status || true, codeGraph: e.code || null }; }
   }, 4);
 
   // Un dossier retrouvé dont le marqueur ne se lit pas (réseau, blocage du navigateur, 5xx) : on le dit, sans jamais donner son lien ni son nom.
-  for (const x of lus) if (x.inaccessible) problemes.push({ type: "marqueur_illisible", status: x.inaccessible === true ? null : x.inaccessible, source: x.source });
-  const candidats = lus.filter(x => x.marqueur && x.marqueur.jdr === profil.id);
+  for (const x of lus) if (x.inaccessible) problemes.push({ type: "marqueur_illisible", status: x.inaccessible === true ? null : x.inaccessible, code: x.codeGraph || null, source: x.source });
+  const duJdr = lus.filter(x => x.marqueur && x.marqueur.jdr === profil.id);
+  // D27 : le pseudo d'un joueur vit dans le marqueur de son dossier. Un dossier « joueur » sans pseudo n'est pas utilisé, et on le dit.
+  for (const x of duJdr) if (x.marqueur.role === "joueur" && !x.marqueur.pseudo) problemes.push({ type: "marqueur_sans_pseudo" });
+  const candidats = duJdr.filter(x => !(x.marqueur.role === "joueur" && !x.marqueur.pseudo));
   const racines = {};
   for (const c of candidats) {
     if (c.marqueur.role === "coffre") {
@@ -71,7 +74,7 @@ export async function trouverRacines({ client, profil, memorises = [], liens = [
   for (const role of attendus) {
     const l = candidats.filter(c => c.marqueur.role === role);
     const uniques = [...new Map(l.map(c => [cle(c), c])).values()];
-    if (uniques.length === 1) racines[role] = { driveId: uniques[0].driveId, itemId: uniques[0].itemId };
+    if (uniques.length === 1) racines[role] = { driveId: uniques[0].driveId, itemId: uniques[0].itemId, ...(role === "joueur" ? { pseudo: uniques[0].marqueur.pseudo } : {}) };
     else if (uniques.length > 1) problemes.push({ type: "ambigu", role, noms: uniques.map(c => c.name) });
   }
   const complet = attendus.every(r => racines[r]) && !problemes.some(p => p.type === "ambigu" || p.type === "coffre_partage");
@@ -82,17 +85,21 @@ export async function trouverRacines({ client, profil, memorises = [], liens = [
  * Au démarrage : les dossiers mémorisés sont-ils toujours là, avec le même rôle ?
  * → { role: "ok" | "acces_retire" | "marqueur_change" | "hors_ligne" }
  */
-export async function verifierRacines({ client, profil, racines }) {
-  const etat = {};
+export async function verifierRacines(o) { return (await verifierRacinesDetail(o)).etat; }
+
+/** Comme `verifierRacines`, et renvoie aussi les marqueurs lus : `{ etat, marqueurs: { role: { jdr, role, pseudo } } }` (le pseudo d'un joueur en vient, D27). */
+export async function verifierRacinesDetail({ client, profil, racines }) {
+  const etat = {}, marqueurs = {};
   for (const [role, noeud] of Object.entries(racines)) {
     try {
       const m = lireMarqueur(await client.lireTexte(noeud, NOM_MARQUEUR));
-      if (m && m.jdr === profil.id && m.role === role) etat[role] = "ok";
+      // un dossier « joueur » dont le marqueur n'a plus de pseudo valide est traité comme un dossier changé : on le redécouvre (et le problème est dit)
+      if (m && m.jdr === profil.id && m.role === role && (role !== "joueur" || m.pseudo)) { etat[role] = "ok"; marqueurs[role] = m; }
       else etat[role] = (await client.lister(noeud)) === null ? "acces_retire" : "marqueur_change";   // 404 sur le dossier lui-même = partage retiré
     } catch (e) {
       if (estAuth(e)) throw e;
       etat[role] = e.status === 403 || e.status === 404 ? "acces_retire" : "hors_ligne";
     }
   }
-  return etat;
+  return { etat, marqueurs };
 }

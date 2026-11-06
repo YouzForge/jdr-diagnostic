@@ -75,7 +75,10 @@ export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, 
         await attendre(Math.min(Number.isFinite(ra) && ra > 0 ? ra * 1000 : 500 * 2 ** (essai - 1), 30000));
         continue;
       }
-      throw new ErreurGraph("OneDrive : erreur " + r.status, r.status);
+      // Le code d'erreur Graph (« invalidRequest », « accessDenied »…) aide à comprendre un refus ; le message et l'adresse ne sont jamais gardés.
+      let code = null;
+      try { const j = await r.json(); const c = j && j.error && j.error.code; if (typeof c === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(c)) code = c; } catch { /* corps absent ou illisible */ }
+      throw new ErreurGraph("OneDrive : erreur " + r.status, r.status, { code });
     }
   }
 
