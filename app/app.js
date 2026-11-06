@@ -37,11 +37,12 @@ function rendreBlocs(blocs) {
 }
 
 /* ---------- écrans ---------- */
-/** Déconnexion locale (voir auth.logout) : on revient à l'écran de connexion, où le choix du compte Microsoft est reproposé. */
+/** Déconnexion locale (voir auth.logout). On RECHARGE ensuite la page : sans redirection, MSAL garde une interaction « en cours » et refuse
+ *  le bouton « Se connecter » tant que la page n'est pas rechargée (relevé sur iPhone le 6 novembre). Au rechargement : écran de connexion. */
 async function sortir() {
   nav++;
   try { await auth.logout(); } catch { /* la déconnexion locale a eu lieu même si l'effacement a échoué */ }
-  ecranConnexion();
+  window.location.reload();
 }
 
 function ecranConnexion(message, type = "alerte") {
