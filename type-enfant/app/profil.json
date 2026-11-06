@@ -1,0 +1,168 @@
+{
+  "schema": 2,
+  "id": "type_enfant",
+  "nom": "JDR type — enfant (histoires)",
+  "dossier": "JDR - TYPE Enfant",
+  "public": "enfant",
+  "langue": "fr",
+  "ton": "doux, simple, encourageant",
+  "vocabulaire": {
+    "mj": "conteur",
+    "joueur": "aventurier",
+    "pj": "héros",
+    "session": "histoire",
+    "campagne": "grande aventure"
+  },
+  "theme": {
+    "palette": "lagune"
+  },
+  "securite": {
+    "mode": "unique",
+    "note": "Un seul dossier, tout est visible par qui y a accès."
+  },
+  "joueur_modele": null,
+  "collections": [
+    {
+      "id": "histoire",
+      "label": "Histoires",
+      "singular": "Histoire",
+      "icone": "book",
+      "zone": "unique",
+      "dossier": "01_Histoires",
+      "champs": [
+        {
+          "k": "titre",
+          "l": "Titre",
+          "t": "text",
+          "req": true
+        },
+        {
+          "k": "statut",
+          "l": "Statut",
+          "t": "enum:idee|prete|racontee"
+        }
+      ],
+      "sections": [
+        "Résumé",
+        "Étapes de jeu"
+      ]
+    },
+    {
+      "id": "personnage",
+      "label": "Personnages",
+      "singular": "Personnage",
+      "icone": "person",
+      "zone": "unique",
+      "dossier": "02_Personnages",
+      "champs": [
+        {
+          "k": "nom",
+          "l": "Nom",
+          "t": "text",
+          "req": true
+        },
+        {
+          "k": "portrait",
+          "l": "Portrait",
+          "t": "image"
+        },
+        {
+          "k": "lieu",
+          "l": "Habite à",
+          "t": "ref:lieu"
+        }
+      ],
+      "sections": [
+        "Description"
+      ]
+    },
+    {
+      "id": "lieu",
+      "label": "Lieux",
+      "singular": "Lieu",
+      "icone": "map",
+      "zone": "unique",
+      "dossier": "03_Lieux",
+      "champs": [
+        {
+          "k": "nom",
+          "l": "Nom",
+          "t": "text",
+          "req": true
+        }
+      ],
+      "sections": [
+        "Description"
+      ]
+    },
+    {
+      "id": "objet",
+      "label": "Objets",
+      "singular": "Objet",
+      "icone": "gem",
+      "zone": "unique",
+      "dossier": "04_Objets",
+      "champs": [
+        {
+          "k": "nom",
+          "l": "Nom",
+          "t": "text",
+          "req": true
+        },
+        {
+          "k": "porte_par",
+          "l": "Porté par",
+          "t": "ref:personnage"
+        }
+      ],
+      "sections": [
+        "Description"
+      ]
+    }
+  ],
+  "modules": {
+    "coeurs": {
+      "actif": true,
+      "depart": 3,
+      "jamais_mort": true
+    },
+    "des": {
+      "actif": true,
+      "types": [
+        "2d6"
+      ]
+    },
+    "pieces": {
+      "actif": true,
+      "nom": "pièce",
+      "jamais_perdue": true
+    },
+    "jouer": {
+      "actif": true,
+      "titre_section": "## Étapes de jeu"
+    },
+    "recap": {
+      "actif": true
+    },
+    "journal": {
+      "actif": true
+    },
+    "photos": {
+      "actif": true,
+      "dossier": "08_Photos"
+    },
+    "notes_mj": {
+      "actif": true
+    },
+    "voies": {
+      "actif": false
+    },
+    "carte": {
+      "actif": false
+    },
+    "importation": {
+      "actif": false
+    }
+  },
+  "note": "Profil type pour un public enfant : mode dossier unique, ton doux, cœurs et pièces qui ne se perdent jamais, dé 2d6, étapes de jeu. Point de départ à adapter ; les règles qui manquent restent « À répondre »."
+}
