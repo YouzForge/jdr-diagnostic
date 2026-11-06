@@ -12,3 +12,8 @@ export * from "./collections/charger.js";
 export * from "./auth/auth.js";
 export { lancerDiagnostic } from "./diagnostic/diagnostic.js";
 export { creerAuthNavigateur, garderCleDeChiffrement } from "./auth/navigateur.js";
+export * from "./app/roles.js";
+export * from "./app/affichage.js";
+export * from "./app/markdown.js";
+export * from "./app/session.js";
+export * from "./app/bibliotheque.js";

@@ -1,0 +1,28 @@
+:root { color-scheme: light dark; --fond: #fbfaf8; --texte: #1d1b19; --doux: #6b655d; --bord: #8884; --accent: #0b5fff; --carte: #fff; --alerte: #9a6700; --erreur: #cf222e; --ok: #1a7f37; }
+@media (prefers-color-scheme: dark) { :root { --fond: #171513; --texte: #ece8e2; --doux: #a39b90; --carte: #211e1b; --accent: #6ea0ff; } }
+:root[data-palette="cendre"] { --accent: #b3541e; }
+:root[data-palette="lagune"] { --accent: #0b8a8f; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fond); color: var(--texte); font: 17px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: .6rem; padding: .6rem 1rem; background: var(--carte); border-bottom: 1px solid var(--bord); }
+header h1 { font-size: 1.05rem; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+header .qui { font-size: .85rem; color: var(--doux); }
+main { max-width: 44rem; margin: 0 auto; padding: 1rem; }
+h2 { font-size: 1.25rem; margin: .4rem 0 .8rem; } h3 { font-size: 1.05rem; margin: 1.2rem 0 .4rem; }
+button, .bouton { font: inherit; min-height: 2.75rem; padding: .5rem 1rem; border-radius: .6rem; border: 1px solid var(--bord); background: var(--carte); color: var(--texte); cursor: pointer; }
+button.principal { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+button.lien { border: 0; background: none; color: var(--accent); padding: .4rem .2rem; min-height: 0; text-decoration: underline; }
+textarea { font: inherit; width: 100%; min-height: 7rem; padding: .6rem; border-radius: .5rem; border: 1px solid var(--bord); background: var(--carte); color: var(--texte); }
+.liste { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.liste a, .liste button.carte { display: flex; align-items: center; gap: .7rem; width: 100%; text-align: left; padding: .8rem 1rem; border: 1px solid var(--bord); border-radius: .7rem; background: var(--carte); color: inherit; text-decoration: none; min-height: 3.2rem; }
+.liste small { display: block; color: var(--doux); }
+.badge { font-size: .75rem; padding: .1rem .5rem; border-radius: 1rem; border: 1px solid var(--bord); color: var(--doux); white-space: nowrap; }
+.badge.secret { color: var(--erreur); border-color: var(--erreur); } .badge.conditionnel { color: var(--alerte); border-color: var(--alerte); }
+.bandeau { padding: .6rem .8rem; border-radius: .6rem; margin: 0 0 1rem; border: 1px solid var(--bord); }
+.bandeau.alerte { border-color: var(--alerte); color: var(--alerte); } .bandeau.erreur { border-color: var(--erreur); color: var(--erreur); }
+.champs { display: grid; grid-template-columns: max-content 1fr; gap: .2rem 1rem; margin: 0 0 1rem; } .champs dt { color: var(--doux); } .champs dd { margin: 0; }
+.fiche blockquote { margin: .6rem 0; padding: .2rem .9rem; border-left: 3px solid var(--accent); color: var(--doux); }
+.fiche hr { border: 0; border-top: 1px solid var(--bord); margin: 1rem 0; }
+.discret { color: var(--doux); font-size: .9rem; }
+.fil { margin: 0 0 .8rem; font-size: .9rem; } .fil a { color: var(--accent); }
