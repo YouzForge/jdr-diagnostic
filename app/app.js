@@ -37,6 +37,13 @@ function rendreBlocs(blocs) {
 }
 
 /* ---------- écrans ---------- */
+/** Déconnexion locale (voir auth.logout) : on revient à l'écran de connexion, où le choix du compte Microsoft est reproposé. */
+async function sortir() {
+  nav++;
+  try { await auth.logout(); } catch { /* la déconnexion locale a eu lieu même si l'effacement a échoué */ }
+  ecranConnexion();
+}
+
 function ecranConnexion(message, type = "alerte") {
   session = null; entete();
   montrer(h("h2", {}, profil.nom), message ? bandeau(message, type) : null,
@@ -77,7 +84,7 @@ async function ecranLiaison(s, message) {
     zone, h("p", {}, btn),
     h("p", { class: "discret" }, "Les liens ne sont pas gardés : l'application mémorise seulement les dossiers retrouvés."),
     h("p", { class: "discret" }, "Les dossiers du MJ ne s'ouvrent qu'avec le compte Microsoft auquel il les a partagés. Ce n'est pas le bon ? ",
-      h("button", { id: "btnChangerCompte", onclick: () => auth.logout() }, "Changer de compte")),
+      h("button", { id: "btnChangerCompte", onclick: () => sortir() }, "Changer de compte")),
     empreinte ? h("details", { class: "discret" }, h("summary", {}, "Infos pour le MJ"),
       h("p", {}, "Empreinte de ce compte (utile seulement pour déclarer un compte MJ) : "),
       h("p", { id: "empreinte", style: "word-break:break-all;user-select:all" }, empreinte)) : null);
@@ -175,7 +182,7 @@ async function demarrer() {
     await auth.init();
     client = creerClientGraph({ fetch: (...a) => window.fetch(...a), getToken: () => auth.getToken() });
   } catch (e) { return montrer(bandeau("Impossible de démarrer : " + (e && e.message ? e.message : "erreur"), "erreur")); }
-  $("btnDeconnexion").onclick = () => auth.logout();
+  $("btnDeconnexion").onclick = () => sortir();
   window.addEventListener("hashchange", route);
   if (!auth.connecte()) return ecranConnexion();
   await lancer([]);

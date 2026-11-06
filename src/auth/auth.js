@@ -53,7 +53,7 @@ const erreurAuth = msg => { const e = new Error(msg); e.status = 401; e.auth = t
  * @param {Function} [o.now]
  * @param {object} [o.memoire]    { lire(k), ecrire(k,v), retirer(k) } : dernier compte connu (adresse) sur cet appareil
  */
-export function creerAuth({ app, config, subtle, viderCopieLocale = () => {}, now = Date.now, memoire = null }) {
+export function creerAuth({ app, config, subtle, viderCopieLocale = () => {}, now = Date.now, memoire = null, delaiRenouvellementMs = 20000 }) {
   if (!app || typeof app.acquireTokenSilent !== "function") throw new TypeError("MSAL requis");
   const scopes = [...config.scopes];
   let compte = null, jeton = null, enCours = null;
@@ -88,7 +88,13 @@ export function creerAuth({ app, config, subtle, viderCopieLocale = () => {}, no
       if (enCours) return enCours;
       enCours = (async () => {
         try {
-          const r = await app.acquireTokenSilent({ scopes, account: compte });
+          // Le renouvellement silencieux passe par une page cachée de Microsoft ; observé le 6 novembre dans Chrome : sans réponse pendant plus de 30 s,
+          // et l'application restait sur « Chargement… ». Passé le délai, on demande de se reconnecter plutôt que d'attendre sans fin.
+          let minuteur;
+          const r = await Promise.race([
+            app.acquireTokenSilent({ scopes, account: compte }),
+            new Promise((_, rejet) => { minuteur = setTimeout(() => { const t = new Error("renouvellement trop long"); t.errorCode = "login_required"; rejet(t); }, delaiRenouvellementMs); })
+          ]).finally(() => clearTimeout(minuteur));
           jeton = { token: r.accessToken, exp: r.expiresOn ? +new Date(r.expiresOn) : now() + 3000000 };
           return r.accessToken;
         } catch (e) {
@@ -107,11 +113,16 @@ export function creerAuth({ app, config, subtle, viderCopieLocale = () => {}, no
       await app.loginRedirect(req);
     },
 
-    async logout() {
+    /** Déconnexion LOCALE par défaut : jetons et compte mémorisé effacés, mais on ne passe pas par la page de déconnexion de Microsoft.
+     *  Raison : sur iPhone (Safari), cette page a répondu plusieurs fois « AADSTS50061 : Unable to complete signout » (relevé du 6 novembre),
+     *  alors que la même adresse fonctionne dans Chrome ; la cause n'est pas établie. À la reconnexion, `prompt: select_account` laisse
+     *  choisir le compte. `serveur: true` rétablit la déconnexion complète côté Microsoft (la session Microsoft du navigateur est alors fermée). */
+    async logout({ serveur = false } = {}) {
       const c = compte;
       jeton = null; compte = null;
       souvenir.retirer("dernier_compte");
-      try { await viderCopieLocale(); } finally { if (c) await app.logoutRedirect({ account: c }); }
+      try { await viderCopieLocale(); }
+      finally { if (c) await app.logoutRedirect(serveur ? { account: c } : { account: c, onRedirectNavigate: () => false }); }
     }
   };
 }
