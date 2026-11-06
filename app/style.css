@@ -26,3 +26,10 @@ textarea { font: inherit; width: 100%; min-height: 7rem; padding: .6rem; border-
 .fiche hr { border: 0; border-top: 1px solid var(--bord); margin: 1rem 0; }
 .discret { color: var(--doux); font-size: .9rem; }
 .fil { margin: 0 0 .8rem; font-size: .9rem; } .fil a { color: var(--accent); }
+a.bouton { display: inline-block; text-decoration: none; line-height: 1.5; } a.bouton.principal { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--erreur); border-color: var(--erreur); }
+.actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.5rem; align-items: center; } .actions p { flex-basis: 100%; margin: 0; }
+.champ { margin: 0 0 1rem; } .champ label { display: block; font-weight: 600; margin-bottom: .25rem; }
+input[type=text], select { font: inherit; width: 100%; min-height: 2.75rem; padding: .5rem .6rem; border-radius: .5rem; border: 1px solid var(--bord); background: var(--carte); color: var(--texte); }
+input[type=checkbox] { width: 1.6rem; height: 1.6rem; }
+.champ textarea { min-height: 4rem; } .erreur-champ { color: var(--erreur); font-size: .9rem; margin: .2rem 0 0; } .erreur-champ:empty { display: none; }

@@ -17,6 +17,18 @@ export class ErreurGraph extends Error {
 export class CheminInvalide extends Error {
   constructor(rel) { super("Chemin refusé : " + JSON.stringify(rel)); this.name = "CheminInvalide"; this.rel = rel; }
 }
+/** On voulait créer un fichier qui existe déjà : rien n'est écrit (D30, R3). */
+export class FicheExiste extends Error {
+  constructor(rel) { super("Ce fichier existe déjà : " + JSON.stringify(rel)); this.name = "FicheExiste"; this.rel = rel; }
+}
+/** Le fichier a changé (ou disparu) depuis qu'on l'a lu : rien n'est écrit, il faut recharger (D30, jamais « le dernier gagne »). `raison` : « modifiee » ou « disparue ». */
+export class ConflitEcriture extends Error {
+  constructor(rel, raison = "modifiee") { super("Le fichier a changé depuis sa lecture : " + JSON.stringify(rel)); this.name = "ConflitEcriture"; this.rel = rel; this.raison = raison; }
+}
+/** Le fichier est ouvert ailleurs (OneDrive répond 423) : on réessaiera plus tard, rien n'est écrit. */
+export class FicheVerrouillee extends Error {
+  constructor(rel) { super("Le fichier est en cours d'utilisation : " + JSON.stringify(rel)); this.name = "FicheVerrouillee"; this.rel = rel; }
+}
 
 const encodeSegments = p => p.split("/").map(encodeURIComponent).join("/");
 
@@ -59,6 +71,11 @@ const dormir = ms => new Promise(r => setTimeout(r, ms));
  * @param {Function} [o.attendre] async (ms) => void  (remplaçable dans les tests)
  * @param {number}   [o.essais]   nombre total d'essais quand Microsoft répond 429 / 503 / 504
  */
+/** Version (eTag) renvoyée par OneDrive après une écriture ; null si la réponse n'en donne pas. */
+async function etagDe(reponse) {
+  try { const j = await reponse.json(); return j && typeof j.eTag === "string" && j.eTag ? j.eTag : null; } catch { return null; }
+}
+
 const NOM_FICHIER_APP = /^[A-Za-z0-9][A-Za-z0-9_-]{0,80}\.json$/;
 
 export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, essais = 3 }) {
@@ -99,7 +116,7 @@ export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, 
 
   const SELECT = "$select=id,name,size,folder,file,lastModifiedDateTime,parentReference,remoteItem";
 
-  return {
+  const api = {
     /** Contenu d'un dossier. → [{ name, dir, size, id, driveId, modifie, remote }] ; `null` si le dossier n'existe pas. */
     async lister(noeud, rel = "") {
       try {
@@ -134,19 +151,90 @@ export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, 
       await requete(`${GRAPH}/me/drive/special/approot:/${nom}:/content`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: texte });
     },
 
+    /**
+     * Écriture SANS garde (écrase sans regarder). Réservée au diagnostic et à ses fichiers jetables : l'application et les formulaires
+     * passent par `creerTexte` / `remplacerTexte` (un test le vérifie sur les sources).
+     */
     async ecrireTexte(noeud, rel, texte) {
       if (!cheminSur(rel)) throw new CheminInvalide(rel);
       await requete(`${urlDe(noeud, rel)}/content`, { method: "PUT", headers: { "Content-Type": "text/markdown" }, body: texte });
     },
 
+    /** Élément désigné : { id, etag, dir } ou `null` s'il n'existe pas (ou plus accessible : OneDrive répond 404 dans les deux cas). */
+    async infos(noeud, rel = "") {
+      cheminSur(rel);
+      try {
+        const j = await (await requete(`${urlDe(noeud, rel)}?$select=id,eTag,folder,file`)).json();
+        return { id: j.id || null, etag: typeof j.eTag === "string" && j.eTag ? j.eTag : null, dir: !!j.folder };
+      } catch (e) { if (e.status === 404) return null; throw e; }
+    },
+
     /**
-     * Supprime un élément (corbeille OneDrive, récupérable 93 jours). → true si supprimé, false s'il était déjà absent.
+     * Fiche + sa version : { texte, etag } ou `null` si absente. La version (eTag) est lue AVANT le contenu : si le fichier change entre
+     * les deux lectures, la version est plus ANCIENNE que le texte et l'écriture suivante sera refusée (conflit). Dans l'autre ordre,
+     * on pourrait écraser une modification sans le savoir.
+     */
+    async lireFiche(noeud, rel) {
+      if (!cheminSur(rel)) throw new CheminInvalide(rel);
+      const info = await api.infos(noeud, rel);
+      if (!info) return null;
+      if (info.dir) throw new ErreurGraph("Ce n'est pas un fichier", 400, { code: "pasUnFichier" });
+      if (!info.etag) throw new ErreurGraph("Version du fichier non fournie par OneDrive", 0, { sansVersion: true });
+      const texte = await api.lireTexte(noeud, rel);
+      if (texte === null) return null;
+      return { texte, etag: info.etag };
+    },
+
+    /** Crée un fichier NOUVEAU. Refuse s'il existe déjà (vérification avant + `conflictBehavior=fail` demandé à OneDrive). → { etag } */
+    async creerTexte(noeud, rel, texte) {
+      if (!cheminSur(rel)) throw new CheminInvalide(rel);
+      if (await api.infos(noeud, rel)) throw new FicheExiste(rel);
+      try {
+        const r = await requete(`${urlDe(noeud, rel)}/content?@microsoft.graph.conflictBehavior=fail`, { method: "PUT", headers: { "Content-Type": "text/markdown" }, body: texte });
+        return { etag: await etagDe(r) };
+      } catch (e) {
+        if (e.status === 409 || e.status === 412) throw new FicheExiste(rel);
+        if (e.status === 423) throw new FicheVerrouillee(rel);
+        throw e;
+      }
+    },
+
+    /** Remplace le contenu d'un fichier lu avec la version `etag`. Si la version a changé, ou si le fichier a disparu : ConflitEcriture, rien n'est écrit. → { etag } */
+    async remplacerTexte(noeud, rel, texte, etag) {
+      if (!cheminSur(rel)) throw new CheminInvalide(rel);
+      if (typeof etag !== "string" || !etag) throw new TypeError("La version lue (etag) est obligatoire pour modifier un fichier");
+      const actuel = await api.infos(noeud, rel);          // première ligne de défense : on compare juste avant d'écrire
+      if (!actuel) throw new ConflitEcriture(rel, "disparue");
+      if (actuel.etag !== etag) throw new ConflitEcriture(rel, "modifiee");
+      try {                                                    // seconde ligne : OneDrive refuse lui-même si la version a changé entre-temps (HYPOTHÈSE à prouver sur le vrai OneDrive, voir 06_Cadrage_ecriture)
+        const r = await requete(`${urlDe(noeud, rel)}/content`, { method: "PUT", headers: { "Content-Type": "text/markdown", "If-Match": etag }, body: texte });
+        return { etag: await etagDe(r) };
+      } catch (e) {
+        if (e.status === 412) throw new ConflitEcriture(rel, "modifiee");
+        if (e.status === 423) throw new FicheVerrouillee(rel);
+        throw e;
+      }
+    },
+
+    /**
+     * Supprime un élément (corbeille OneDrive : 30 jours pour un compte personnel, 93 jours pour un compte professionnel ou scolaire).
+     * → true si supprimé, false s'il était déjà absent. Avec `etag`, la suppression est refusée (ConflitEcriture) si le fichier a changé depuis sa lecture.
      * Attention : OneDrive répond aussi 404 quand l'accès a été retiré ; l'appelant doit alors vérifier le dossier lui-même (`existe`).
      */
-    async supprimer(noeud, rel) {
+    async supprimer(noeud, rel, { etag } = {}) {
       if (!cheminSur(rel)) throw new CheminInvalide(rel);
-      try { await requete(urlDe(noeud, rel), { method: "DELETE" }); return true; }
-      catch (e) { if (e.status !== 404) throw e; return false; }
+      if (etag) {                                                // même double garde que `remplacerTexte` : comparaison juste avant, puis If-Match
+        const actuel = await api.infos(noeud, rel);
+        if (!actuel) return false;
+        if (actuel.etag !== etag) throw new ConflitEcriture(rel, "modifiee");
+      }
+      try { await requete(urlDe(noeud, rel), { method: "DELETE", ...(etag ? { headers: { "If-Match": etag } } : {}) }); return true; }
+      catch (e) {
+        if (e.status === 412) throw new ConflitEcriture(rel, "modifiee");
+        if (e.status === 423) throw new FicheVerrouillee(rel);
+        if (e.status !== 404) throw e;
+        return false;
+      }
     },
 
     /** Le dossier lui-même est-il accessible ? false = introuvable OU partage retiré (OneDrive répond 404 dans les deux cas). */
@@ -195,4 +283,5 @@ export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, 
       }).filter(Boolean);
     }
   };
+  return api;
 }

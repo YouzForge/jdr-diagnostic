@@ -40,7 +40,7 @@ async function sauvegarderMemoire(client, profil, racines, texteConnu) {
  * @returns {Promise<{statut:"pret"|"a_relier"|"dossier_mj_introuvable", role:string, pseudo?:string, problemes:object[], manque:string[], horsLigne:boolean, depot:object|null, cache:object}>}
  * @throws les erreurs 401 (reconnexion nécessaire)
  */
-export async function ouvrirSession({ auth, client, profil, allowed, stockage, liens = [], cheminMJ }) {
+export async function ouvrirSession({ auth, client, profil, allowed, stockage, liens = [], cheminMJ, ecriture = false }) {
   const qui = await determinerRole({ auth, allowed });
   const cache = creerCache(stockage, await auth.empreinte());
   const separe = profil.securite && profil.securite.mode === "separe";
@@ -51,7 +51,7 @@ export async function ouvrirSession({ auth, client, profil, allowed, stockage, l
     let l;
     try { l = await client.lister(jdr); } catch (e) { if (estAuth(e)) throw e; return { ...base, statut: "dossier_mj_introuvable", problemes: [{ type: "reseau", status: e.status || null }] }; }
     if (l === null) return { ...base, statut: "dossier_mj_introuvable", problemes: [{ type: "dossier_mj_introuvable" }] };
-    return { ...base, statut: "pret", depot: creerDepot({ client, profil, role: "mj", racines: { jdr }, cache }) };
+    return { ...base, statut: "pret", depot: creerDepot({ client, profil, role: "mj", racines: { jdr }, cache, ecriture: ecriture === true }) };
   }
 
   const attendus = separe ? ["table", "joueur"] : ["unique"];
@@ -90,5 +90,5 @@ export async function ouvrirSession({ auth, client, profil, allowed, stockage, l
     }
   }
   await sauvegarderMemoire(client, profil, racines, texteDistant);
-  return { ...base, pseudo: racines.joueur && racines.joueur.pseudo, statut: "pret", problemes, horsLigne, depot: creerDepot({ client, profil, role: "joueur", racines, cache }) };
+  return { ...base, pseudo: racines.joueur && racines.joueur.pseudo, statut: "pret", problemes, horsLigne, depot: creerDepot({ client, profil, role: "joueur", racines, cache, ecriture: ecriture === true }) };
 }

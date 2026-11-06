@@ -1,8 +1,9 @@
-// Interface du moteur (lecture seule pour l'instant : connexion, liaison des dossiers, menu, liste, fiche).
+// Interface du moteur : connexion, liaison des dossiers, menu, liste, fiche, et (si la configuration l'active) formulaires de création, modification et suppression.
 // Toute la logique est dans `src/` (testée dans Node) ; ici, seulement l'affichage. RÈGLE : jamais de innerHTML, uniquement du texte
 // (un test vérifie cette règle) : une fiche ne peut donc ni exécuter de code ni charger d'image.
 import { creerAuthNavigateur, creerClientGraph, chargerProfil, ouvrirSession, bibliotheque, listerJoueurs, collectionsVisibles,
-  validerAutorisations, AccesRefuse, creerStockageNavigateur } from "../src/index.js";
+  validerAutorisations, AccesRefuse, creerStockageNavigateur, cheminCollection, peutEcrire, modeleFormulaire, ouvrirPourModifier,
+  enregistrerModification, enregistrerCreation, supprimerFiche, messageEcriture } from "../src/index.js";
 
 const $ = id => document.getElementById(id);
 const h = (tag, attrs, ...enfants) => {
@@ -16,6 +17,9 @@ let auth, profil, allowed, session = null, client = null;
 let nav = 0;   // numéro de la navigation en cours : une réponse lente d'un ancien écran ne doit jamais remplacer l'écran actuel
 const stockage = creerStockageNavigateur(window.localStorage);
 const mots = () => profil.vocabulaire || {};
+const ecritureActive = () => window.JDR_APP.ecriture === true;     // interrupteur de la configuration : éteint par défaut
+const peutModifier = col => ecritureActive() && peutEcrire(profil, session.role, col);
+const lien = (col, pseudo, fichier) => fichier ? `#/f/${encodeURIComponent(col.id)}/${encodeURIComponent(fichier)}${pseudo ? "/" + encodeURIComponent(pseudo) : ""}` : `#/c/${encodeURIComponent(col.id)}${pseudo ? "/" + encodeURIComponent(pseudo) : ""}`;
 
 /* ---------- affichage de base ---------- */
 function montrer(...noeuds) { const c = $("contenu"); c.textContent = ""; c.append(...noeuds.flat().filter(Boolean)); window.scrollTo(0, 0); }
@@ -122,6 +126,7 @@ async function ecranListe(colId, pseudo, mien = nav) {
   montrer(h("p", { class: "fil" }, h("a", { href: "#/" }, "← Retour")), h("h2", {}, pseudo ? `${col.label} — ${pseudo}` : col.label),
     r.perime ? bandeau("Hors connexion : copie enregistrée sur cet appareil, peut-être pas à jour.") : null,
     r.illisibles.length ? bandeau(`${r.illisibles.length} fichier(s) n'ont pas pu être lus.`) : null,
+    peutModifier(col) ? h("p", {}, h("a", { class: "bouton principal", href: `#/n/${encodeURIComponent(col.id)}${pseudo ? "/" + encodeURIComponent(pseudo) : ""}` }, "+ Nouvelle fiche")) : null,
     r.absent || !r.fiches.length ? h("p", { class: "discret" }, "Rien ici pour l'instant.") :
       h("ul", { class: "liste" }, r.fiches.map(f => h("li", {}, h("a", { href: `#/f/${encodeURIComponent(col.id)}/${encodeURIComponent(f.fichier)}${pseudo ? "/" + encodeURIComponent(pseudo) : ""}` },
         h("span", { style: "flex:1" }, f.nom), session.role === "mj" && f.visibilite !== "accessible" ? badgeVisibilite(f) : null)))));
@@ -138,7 +143,98 @@ async function ecranFiche(colId, pseudo, fichier, mien = nav) {
   montrer(retour, r.perime ? bandeau("Hors connexion : copie enregistrée sur cet appareil.") : null,
     h("article", { class: "fiche" }, h("h2", {}, f.nom),
       f.champs.length ? h("dl", { class: "champs" }, f.champs.map(c => [h("dt", {}, c.libelle), h("dd", {}, c.valeur)])) : null,
-      rendreBlocs(f.blocs)));
+      rendreBlocs(f.blocs)),
+    peutModifier(col) ? actionsFiche(col, pseudo, fichier) : null);
+}
+
+/** Modifier / supprimer. La suppression demande confirmation à l'écran (pas de fenêtre du navigateur) et envoie la fiche à la corbeille OneDrive. */
+function actionsFiche(col, pseudo, fichier) {
+  const zone = h("div", { class: "actions" });
+  const normal = () => {
+    zone.textContent = "";
+    zone.append(h("a", { class: "bouton", href: `#/m/${encodeURIComponent(col.id)}/${encodeURIComponent(fichier)}${pseudo ? "/" + encodeURIComponent(pseudo) : ""}` }, "Modifier"),
+      h("button", { class: "danger", onclick: confirmer }, "Supprimer"));
+  };
+  const confirmer = () => {
+    zone.textContent = "";
+    const oui = h("button", { class: "danger" }, "Oui, supprimer");
+    oui.onclick = async () => {
+      oui.disabled = true;
+      try { await supprimerFiche({ session, profil, col, pseudo, fichier }); location.hash = lien(col, pseudo); }
+      catch (e) { const m = messageEcriture(e); if (m.type === "auth") return gerer(e); zone.prepend(bandeau(m.texte, "erreur")); oui.disabled = false; }
+    };
+    zone.append(h("p", {}, "Supprimer cette fiche ? Elle ira dans la corbeille OneDrive."), oui, h("button", { onclick: normal }, "Annuler"));
+  };
+  normal();
+  return zone;
+}
+
+/* ---------- formulaire de création et de modification ---------- */
+async function ecranFormulaire(colId, pseudo, fichier, mien = nav) {
+  const col = collectionsVisibles(profil, session.role).find(c => c.id === colId);
+  if (!col || !peutModifier(col)) return ecranMenu(mien);
+  const retour = h("p", { class: "fil" }, h("a", { href: lien(col, pseudo, fichier) }, "← Annuler"));
+  let ouverture = null, modele, existants = [];
+  if (fichier) {
+    try { ouverture = await ouvrirPourModifier({ session, profil, col, pseudo, fichier }); }
+    catch (e) { if (e && e.status === 401) return gerer(e); return montrer(retour, bandeau(messageEcriture(e).texte, "erreur")); }
+    if (mien !== nav) return;
+    if (!ouverture) return montrer(retour, bandeau("Cette fiche n'existe plus.", "erreur"));
+    modele = ouverture.modele;
+  } else {
+    modele = modeleFormulaire(profil, session.role, col);
+    try { existants = (await session.depot.lister(cheminCollection(profil, session.role, col, pseudo))).donnees.map(x => x.name); } catch (e) { if (e && e.status === 401) return gerer(e); }
+    if (mien !== nav) return;
+  }
+  const controles = new Map(), erreursZone = new Map();
+  const champ = (cle, libelle, controle, aide, requis) => {
+    const err = h("p", { class: "erreur-champ", role: "alert" });
+    erreursZone.set(cle, err);
+    return h("div", { class: "champ" }, h("label", {}, libelle, requis ? " *" : ""), controle, aide ? h("p", { class: "discret" }, aide) : null, err);
+  };
+  const blocs = [];
+  for (const c of modele.champs) {
+    let ctl;
+    if (c.genre === "bool") ctl = h("input", { type: "checkbox", checked: c.initial === "true" });
+    else if (c.options) {
+      ctl = h("select", {}, c.options.length && !c.requis ? h("option", { value: "" }, "—") : null,
+        c.options.map(o => h("option", { value: o, selected: o === c.initial }, (c.libellesOptions && c.libellesOptions[o]) || o.replace(/_/g, " "))));
+    } else if (c.genre === "area") ctl = h("textarea", { rows: "3" }, c.initial);
+    else ctl = h("input", { type: "text", value: c.initial, autocomplete: "off", inputmode: c.genre === "int" ? "numeric" : null });
+    controles.set("c:" + c.cle, ctl);
+    blocs.push(champ(c.cle, c.libelle, ctl, c.aide, c.requis));
+  }
+  for (const sct of modele.sections) {
+    const ctl = h("textarea", { rows: "6" }, sct.initial);
+    controles.set("s:" + sct.titre, ctl);
+    blocs.push(champ("§" + sct.titre, sct.titre, ctl, null, false));
+  }
+  const message = h("div", {});
+  const btn = h("button", { class: "principal", type: "button" }, "Enregistrer");
+  const lire = () => ({
+    champs: Object.fromEntries(modele.champs.map(c => { const e = controles.get("c:" + c.cle); return [c.cle, c.genre === "bool" ? e.checked : e.value]; })),
+    sections: Object.fromEntries(modele.sections.map(x => [x.titre, controles.get("s:" + x.titre).value]))
+  });
+  btn.onclick = async () => {
+    message.textContent = ""; for (const e of erreursZone.values()) e.textContent = "";
+    btn.disabled = true;
+    try {
+      const saisies = lire();
+      const r = fichier ? await enregistrerModification({ session, profil, col, pseudo, fichier, ouverture, saisies })
+                        : await enregistrerCreation({ session, profil, col, pseudo, modele, saisies, existants });
+      if (r.erreurs) { for (const [k, v] of Object.entries(r.erreurs)) if (erreursZone.has(k)) erreursZone.get(k).textContent = v; message.append(bandeau("Corrige les champs signalés.")); btn.disabled = false; return; }
+      location.hash = r.inchange ? lien(col, pseudo, fichier) : lien(col, pseudo, r.fichier);
+    } catch (e) {
+      const m = messageEcriture(e);
+      if (m.type === "auth") return gerer(e);
+      message.append(bandeau(m.texte, "erreur"));
+      // ce que la personne a tapé reste à l'écran ; en cas de conflit elle peut recharger la dernière version (ses saisies seront alors remplacées)
+      if (m.type === "conflit" && fichier) message.append(h("p", {}, h("button", { onclick: () => ecranFormulaire(colId, pseudo, fichier, ++nav) }, "Recharger la dernière version")));
+      btn.disabled = false;
+    }
+  };
+  const avertissement = session.role === "mj" && col.zone === "table" ? bandeau("Cette fiche sera lisible par tous les joueurs si sa visibilité est « Accessible ». Ne mets aucun secret ici.") : null;
+  montrer(retour, h("h2", {}, (fichier ? "Modifier : " : "Nouvelle fiche : ") + (col.singular || col.label)), avertissement, h("form", { onsubmit: ev => ev.preventDefault() }, blocs), message, h("p", {}, btn));
 }
 
 /* ---------- navigation ---------- */
@@ -150,6 +246,8 @@ async function route() {
   try {
     if (p[0] === "c" && p[1] && p.length <= 3) return await ecranListe(p[1], p[2], mien);          // #/c/<collection>[/<pseudo>]
     if (p[0] === "f" && p[1] && p[2] && p.length <= 4) return await ecranFiche(p[1], p[3], p[2], mien);   // #/f/<collection>/<fichier>[/<pseudo>]
+    if (p[0] === "n" && p[1] && p.length <= 3) return await ecranFormulaire(p[1], p[2], null, mien);       // #/n/<collection>[/<pseudo>]  (nouvelle fiche)
+    if (p[0] === "m" && p[1] && p[2] && p.length <= 4) return await ecranFormulaire(p[1], p[3], p[2], mien);   // #/m/<collection>/<fichier>[/<pseudo>]  (modifier)
     return await ecranMenu(mien);
   } catch (e) { gerer(e); }
 }
@@ -162,7 +260,7 @@ function gerer(e) {
 
 async function lancer(liens = [], message) {
   try {
-    session = await ouvrirSession({ auth, client, profil, allowed, stockage, liens, cheminMJ: window.JDR_APP.racineMJ || undefined });
+    session = await ouvrirSession({ auth, client, profil, allowed, stockage, liens, cheminMJ: window.JDR_APP.racineMJ || undefined, ecriture: ecritureActive() });
     entete();
     if (session.statut === "a_relier") return await ecranLiaison(session, message);
     if (session.statut === "dossier_mj_introuvable") return montrer(session.problemes.map(p => bandeau(PROBLEMES[p.type](p), "erreur")));
