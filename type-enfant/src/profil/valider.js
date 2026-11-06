@@ -12,6 +12,8 @@ const ZONES_SEPARE = ["mj", "table", "joueur"];
 const ZONES_UNIQUE = ["unique"];
 const PORTEES = ["monde", "table"];
 const RE_ID = /^[a-z][a-z0-9_]*$/;
+const HABILLAGES = ["sobre", "conte"];
+const RE_COULEUR = /^#[0-9a-fA-F]{6}$/;
 
 function estObjet(x) {
   return x !== null && typeof x === "object" && !Array.isArray(x);
@@ -52,6 +54,14 @@ export function validerProfil(prof) {
   }
   if (!PUBLICS_PROFIL.includes(prof.public)) {
     err(`« public » doit valoir ${PUBLICS_PROFIL.join(", ")}`);
+  }
+
+  // ── apparence (facultative : n'affecte que l'affichage) ──
+  if (prof.theme !== undefined) {
+    if (!estObjet(prof.theme)) err("« theme » doit être un objet");
+    else if (prof.theme.habillage !== undefined && !HABILLAGES.includes(prof.theme.habillage)) {
+      err(`« theme.habillage » doit valoir ${HABILLAGES.join(" ou ")} (reçu : ${JSON.stringify(prof.theme.habillage)})`);
+    }
   }
 
   // ── sécurité ──
@@ -112,6 +122,7 @@ export function validerProfil(prof) {
       err(`${cid} : portée « ${c.portee} » inconnue (permises : ${PORTEES.join(", ")})`);
     }
     if (typeof c.dossier !== "string" || c.dossier.trim() === "") err(`${cid} : « dossier » obligatoire`);
+    if (c.couleur !== undefined && !RE_COULEUR.test(String(c.couleur))) err(`${cid} : « couleur » doit s'écrire #rrggbb (reçu : ${JSON.stringify(c.couleur)})`);
     const champs = Array.isArray(c.champs) ? c.champs : [];
     const cles = champs.map((ch) => ch && ch.k);
     if (cles.includes("collection")) err(`${cid} : « collection » est une clé réservée`);

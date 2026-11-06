@@ -5,6 +5,8 @@ import { creerAuthNavigateur, creerClientGraph, chargerProfil, ouvrirSession, bi
   validerAutorisations, AccesRefuse, creerStockageNavigateur, cheminCollection, peutEcrire, modeleFormulaire, ouvrirPourModifier,
   enregistrerModification, enregistrerCreation, supprimerFiche, messageEcriture } from "../src/index.js";
 
+import { icone } from "./icones.js";
+
 const $ = id => document.getElementById(id);
 const h = (tag, attrs, ...enfants) => {
   const e = document.createElement(tag);
@@ -20,6 +22,26 @@ const mots = () => profil.vocabulaire || {};
 const ecritureActive = () => window.JDR_APP.ecriture === true;     // interrupteur de la configuration : éteint par défaut
 const peutModifier = col => ecritureActive() && peutEcrire(profil, session.role, col);
 const lien = (col, pseudo, fichier) => fichier ? `#/f/${encodeURIComponent(col.id)}/${encodeURIComponent(fichier)}${pseudo ? "/" + encodeURIComponent(pseudo) : ""}` : `#/c/${encodeURIComponent(col.id)}${pseudo ? "/" + encodeURIComponent(pseudo) : ""}`;
+
+/* ---------- habillage ---------- */
+// L'habillage (profil.theme.habillage) ne change que l'apparence (feuille de style) : « sobre » (défaut) ou « conte » (carton, ombres décalées, tuiles colorées).
+// Les couleurs viennent du profil (collection.couleur, "#rrggbb") ou, à défaut, d'une suite de couleurs du kit « conte ».
+const HABILLAGES = ["sobre", "conte"];
+const COULEURS_CONTE = ["#C23B2E", "#1F6F5E", "#2F5FA8", "#6B3FA0", "#9A5B2B", "#F2B63D"];
+const HEX = /^#[0-9a-f]{6}$/i;
+const encre = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.58 ? "#3A2618" : "#FFFFFF"; };
+function couleurDe(col) {
+  if (col && HEX.test(col.couleur || "")) return col.couleur;
+  const i = Math.max(0, profil.collections.findIndex(c => c.id === (col && col.id)));
+  return COULEURS_CONTE[i % COULEURS_CONTE.length];
+}
+/** Disque coloré avec l'icône de la collection (visible seulement avec l'habillage « conte »). */
+function disque(nom, couleur, taille = 52) {
+  const d = h("span", { class: "disque", style: `--c:${couleur};--t:${taille}px` });
+  d.append(icone(nom || "book", Math.round(taille * 0.52), encre(couleur), 2.2));
+  return d;
+}
+const iconeDe = col => (col && col.icone) || "book";
 
 /* ---------- affichage de base ---------- */
 function montrer(...noeuds) { const c = $("contenu"); c.textContent = ""; c.append(...noeuds.flat().filter(Boolean)); window.scrollTo(0, 0); }
@@ -51,9 +73,15 @@ async function sortir() {
 
 function ecranConnexion(message, type = "alerte") {
   session = null; entete();
-  montrer(h("h2", {}, profil.nom), message ? bandeau(message, type) : null,
+  montrer(accueilTitre(), message ? bandeau(message, type) : null,
     h("p", {}, "Connecte-toi avec le compte Microsoft que le MJ a autorisé."),
     h("p", {}, h("button", { class: "principal", onclick: () => auth.login() }, "Se connecter avec Microsoft")));
+}
+
+/** Titre de l'accueil : pastille d'emblème (habillage « conte ») + nom du JDR. */
+function accueilTitre() {
+  const emb = h("span", { class: "emblem", "aria-hidden": "true" }, icone((profil.theme && profil.theme.icone) || "book", 38, "var(--encre)", 2.2));
+  return h("div", { class: "bonjour" }, emb, h("h2", {}, profil.nom));
 }
 
 const SOURCES = { memorise: "dans la mémoire de l'appareil", lien: "par un lien", raccourci: "par un raccourci OneDrive", partagesAvecMoi: "par « Partagés avec moi »" };
@@ -100,14 +128,15 @@ async function ecranMenu(mien = nav) {
   const joueurs = session.role === "mj" && cols.some(c => c.zone === "joueur") ? await listerJoueurs({ session, profil }).catch(() => []) : [];
   if (mien !== nav) return;
   const items = [];
+  const tuile = (c, href, texte) => h("li", {}, h("a", { href }, disque(iconeDe(c), couleurDe(c), 60), h("span", { class: "etiquette" }, texte)));
   for (const c of cols) {
-    if (c.zone === "joueur" && session.role === "mj") for (const p of joueurs) items.push(h("li", {}, h("a", { href: `#/c/${encodeURIComponent(c.id)}/${encodeURIComponent(p)}` }, h("span", {}, `${c.label} — ${p}`))));
-    else items.push(h("li", {}, h("a", { href: `#/c/${encodeURIComponent(c.id)}` }, h("span", {}, c.label))));
+    if (c.zone === "joueur" && session.role === "mj") for (const p of joueurs) items.push(tuile(c, `#/c/${encodeURIComponent(c.id)}/${encodeURIComponent(p)}`, `${c.label} — ${p}`));
+    else items.push(tuile(c, `#/c/${encodeURIComponent(c.id)}`, c.label));
   }
   entete();
   montrer(session.horsLigne ? bandeau("Hors connexion : tu vois la dernière copie enregistrée sur cet appareil.") : null,
     session.problemes.map(p => (PROBLEMES[p.type] ? bandeau(PROBLEMES[p.type](p)) : null)),
-    h("h2", {}, profil.nom), items.length ? h("ul", { class: "liste" }, items) : h("p", {}, "Rien à afficher pour l'instant."));
+    accueilTitre(), items.length ? h("ul", { class: "liste menu" }, items) : h("p", {}, "Rien à afficher pour l'instant."));
 }
 
 /** Badge de visibilité (MJ). Une visibilité absente ou inconnue n'est PAS un secret voulu : la fiche est cachée aux joueurs par prudence, et le badge le dit. */
@@ -120,16 +149,17 @@ function badgeVisibilite(f) {
 async function ecranListe(colId, pseudo, mien = nav) {
   const col = collectionsVisibles(profil, session.role).find(c => c.id === colId);
   if (!col) return ecranMenu(mien);
-  montrer(h("p", { class: "fil" }, h("a", { href: "#/" }, "← Retour")), h("h2", {}, pseudo ? `${col.label} — ${pseudo}` : col.label), h("p", {}, "Chargement…"));
+  const titreListe = h("h2", {}, pseudo ? `${col.label} — ${pseudo}` : col.label);
+  montrer(h("p", { class: "fil" }, h("a", { href: "#/" }, "← Retour")), titreListe, h("p", {}, "Chargement…"));
   const r = await bibliotheque({ session, profil, col, pseudo });
   if (mien !== nav) return;
-  montrer(h("p", { class: "fil" }, h("a", { href: "#/" }, "← Retour")), h("h2", {}, pseudo ? `${col.label} — ${pseudo}` : col.label),
+  montrer(h("p", { class: "fil" }, h("a", { href: "#/" }, "← Retour")), titreListe,
     r.perime ? bandeau("Hors connexion : copie enregistrée sur cet appareil, peut-être pas à jour.") : null,
     r.illisibles.length ? bandeau(`${r.illisibles.length} fichier(s) n'ont pas pu être lus.`) : null,
     peutModifier(col) ? h("p", {}, h("a", { class: "bouton principal", href: `#/n/${encodeURIComponent(col.id)}${pseudo ? "/" + encodeURIComponent(pseudo) : ""}` }, "+ Nouvelle fiche")) : null,
     r.absent || !r.fiches.length ? h("p", { class: "discret" }, "Rien ici pour l'instant.") :
       h("ul", { class: "liste" }, r.fiches.map(f => h("li", {}, h("a", { href: `#/f/${encodeURIComponent(col.id)}/${encodeURIComponent(f.fichier)}${pseudo ? "/" + encodeURIComponent(pseudo) : ""}` },
-        h("span", { style: "flex:1" }, f.nom), session.role === "mj" && f.visibilite !== "accessible" ? badgeVisibilite(f) : null)))));
+        disque(iconeDe(col), couleurDe(col), 40), h("span", { style: "flex:1" }, f.nom), session.role === "mj" && profil.securite.mode === "separe" && f.visibilite !== "accessible" ? badgeVisibilite(f) : null)))));
 }
 
 async function ecranFiche(colId, pseudo, fichier, mien = nav) {
@@ -142,7 +172,7 @@ async function ecranFiche(colId, pseudo, fichier, mien = nav) {
   if (!f) return montrer(retour, h("p", {}, "Cette fiche n'existe pas ou n'est pas visible."));
   montrer(retour, r.perime ? bandeau("Hors connexion : copie enregistrée sur cet appareil.") : null,
     h("article", { class: "fiche" }, h("h2", {}, f.nom),
-      f.champs.length ? h("dl", { class: "champs" }, f.champs.map(c => [h("dt", {}, c.libelle), h("dd", {}, c.valeur)])) : null,
+      f.champs.length ? h("dl", { class: "champs" }, f.champs.map(c => h("div", {}, h("dt", {}, c.libelle), h("dd", {}, c.valeur)))) : null,
       rendreBlocs(f.blocs)),
     peutModifier(col) ? actionsFiche(col, pseudo, fichier) : null);
 }
@@ -234,7 +264,7 @@ async function ecranFormulaire(colId, pseudo, fichier, mien = nav) {
     }
   };
   const avertissement = session.role === "mj" && col.zone === "table" ? bandeau("Cette fiche sera lisible par tous les joueurs si sa visibilité est « Accessible ». Ne mets aucun secret ici.") : null;
-  montrer(retour, h("h2", {}, (fichier ? "Modifier : " : "Nouvelle fiche : ") + (col.singular || col.label)), avertissement, h("form", { onsubmit: ev => ev.preventDefault() }, blocs), message, h("p", {}, btn));
+  montrer(retour, h("h2", {}, (fichier ? "Modifier : " : "Nouvelle fiche : ") + (col.singular || col.label)), avertissement, h("form", { onsubmit: ev => ev.preventDefault() }, blocs), message, h("p", { class: "barre-actions" }, btn));
 }
 
 /* ---------- navigation ---------- */
@@ -282,6 +312,9 @@ async function demarrer() {
   try {
     profil = await chargerLeProfil();
     document.title = profil.nom; $("titre").textContent = profil.nom;
+    const hab = profil.theme && HABILLAGES.includes(profil.theme.habillage) ? profil.theme.habillage : "sobre";
+    document.documentElement.dataset.habillage = hab;
+    if (hab === "conte") document.head.append(h("meta", { name: "theme-color", content: "#F4E8D3" }));
     if (profil.theme && profil.theme.palette) document.documentElement.dataset.palette = String(profil.theme.palette).replace(/[^a-z0-9_-]/gi, "");
     allowed = validerAutorisations(window.JDR_APP.allowed);
     ({ auth } = await creerAuthNavigateur(window, window.JDR_APP));

@@ -14,7 +14,9 @@
     "campagne": "grande aventure"
   },
   "theme": {
-    "palette": "lagune"
+    "palette": "lagune",
+    "habillage": "conte",
+    "icone": "book"
   },
   "securite": {
     "mode": "unique",
