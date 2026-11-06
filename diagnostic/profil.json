@@ -1,0 +1,67 @@
+{
+  "schema": 2,
+  "id": "cendres",
+  "nom": "Cendres de Valmora (profil de test, adulte, secrets)",
+  "dossier": "JDR - TEST Cendres",
+  "public": "adulte",
+  "langue": "fr",
+  "ton": "sobre, précis",
+  "vocabulaire": { "mj": "maître du jeu", "joueur": "joueur", "pj": "personnage", "session": "séance", "campagne": "campagne" },
+  "theme": { "palette": "cendre" },
+  "securite": {
+    "mode": "separe",
+    "coffre": "MJ", "table": "Table", "joueurs": "Joueurs",
+    "masque": {
+      "sections": ["🔴", "Secret MJ", "Notes MJ"],
+      "champs": ["secret_mj", "jauge_cachee", "notes_mj"],
+      "visibilites_publiables": ["accessible"]
+    },
+    "visibilites": { "accessible": "Accessible", "conditionnel": "Conditionnel", "secret": "Secret MJ" }
+  },
+  "tables": [
+    { "id": "mardi", "nom": "Table du mardi" },
+    { "id": "samedi", "nom": "Table du samedi" }
+  ],
+  "joueur_modele": {
+    "dossier": "Joueurs/{pseudo}",
+    "fichier_fiche": "Fiche.md",
+    "dossiers": [ { "id": "inventaire", "dossier": "Inventaire", "label": "Inventaire" }, { "id": "journal", "dossier": "Journal", "label": "Journal" } ],
+    "miroir_mj": "MJ/03_Joueurs/{pseudo}"
+  },
+  "collections": [
+    { "id": "lieu", "label": "Lieux", "singular": "Lieu", "icone": "map", "zone": "mj", "dossier": "MJ/01_Univers/Lieux", "portee": "monde",
+      "champs": [ { "k": "nom", "l": "Nom", "t": "text", "req": true }, { "k": "visibilite", "l": "Visibilité", "t": "visibilite" } ],
+      "sections": [ "Description", "🔴 Secret MJ" ] },
+    { "id": "pnj", "label": "PNJ", "singular": "PNJ", "icone": "friends", "zone": "mj", "dossier": "MJ/01_Univers/PNJ", "portee": "monde",
+      "champs": [ { "k": "nom", "l": "Nom", "t": "text", "req": true }, { "k": "visibilite", "l": "Visibilité", "t": "visibilite" },
+                  { "k": "lieu", "l": "Lieu", "t": "ref:lieu" }, { "k": "allies", "l": "Alliés", "t": "list:ref:pnj" }, { "k": "secret_mj", "l": "Secret", "t": "area" } ],
+      "sections": [ "Apparence", "🔴 Secret MJ" ] },
+    { "id": "quete", "label": "Quêtes", "singular": "Quête", "icone": "flag", "zone": "mj", "dossier": "MJ/02_Quetes", "portee": "monde",
+      "champs": [ { "k": "titre", "l": "Titre", "t": "text", "req": true }, { "k": "visibilite", "l": "Visibilité", "t": "visibilite" },
+                  { "k": "etat", "l": "État", "t": "enum:a_venir|en_cours|terminee" } ],
+      "sections": [ "Objectif", "🔴 Secret MJ" ] },
+    { "id": "session", "label": "Séances", "singular": "Séance", "icone": "calendar", "zone": "mj", "dossier": "MJ/04_Seances", "portee": "table",
+      "champs": [ { "k": "titre", "l": "Titre", "t": "text", "req": true }, { "k": "visibilite", "l": "Visibilité", "t": "visibilite" }, { "k": "numero", "l": "Numéro", "t": "int" } ],
+      "sections": [ "Déroulé", "Notes MJ" ] },
+    { "id": "resume", "label": "Résumés", "singular": "Résumé", "icone": "scroll", "zone": "table", "dossier": "Table/Resumes", "portee": "table",
+      "champs": [ { "k": "titre", "l": "Titre", "t": "text", "req": true }, { "k": "visibilite", "l": "Visibilité", "t": "visibilite" } ],
+      "sections": [ "Résumé" ] },
+    { "id": "pj_inventaire", "label": "Inventaire", "singular": "Objet", "icone": "bag", "zone": "joueur", "dossier": "Inventaire",
+      "champs": [ { "k": "nom", "l": "Nom", "t": "text", "req": true }, { "k": "quantite", "l": "Quantité", "t": "int" } ],
+      "sections": [ "Description" ] }
+  ],
+  "modules": {
+    "d100":    { "actif": true, "reussite": "A_PRECISER" },
+    "jauges":  { "actif": true },
+    "savoirs": { "actif": true },
+    "des":     { "actif": true, "types": ["d100", "d10"] },
+    "recap":   { "actif": true },
+    "journal": { "actif": true },
+    "notes_mj":{ "actif": true },
+    "photos":  { "actif": true },
+    "jouer":   { "actif": true, "roles": ["mj"] },
+    "coeurs":  { "actif": false },
+    "carte":   { "actif": false },
+    "importation": { "actif": false }
+  }
+}

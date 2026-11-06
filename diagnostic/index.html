@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Diagnostic d'étanchéité</title>
+<style>
+  :root { color-scheme: light dark; --bord: #8884; --ok: #1a7f37; --ko: #cf222e; --ni: #9a6700; }
+  body { font: 16px/1.45 system-ui, sans-serif; max-width: 42rem; margin: 0 auto; padding: 1rem; }
+  h1 { font-size: 1.3rem; } h2 { font-size: 1.05rem; margin-top: 1.6rem; }
+  button { font: inherit; padding: .55rem 1rem; border-radius: .5rem; border: 1px solid var(--bord); cursor: pointer; }
+  button.principal { background: #0b5fff; color: #fff; border-color: #0b5fff; } button:disabled { opacity: .5; cursor: default; }
+  input { font: inherit; width: 100%; box-sizing: border-box; padding: .5rem; border: 1px solid var(--bord); border-radius: .4rem; margin: .2rem 0 .7rem; }
+  label { display: block; font-size: .9rem; }
+  .etape { display: flex; gap: .6rem; padding: .5rem 0; border-bottom: 1px solid var(--bord); }
+  .etape .ic { flex: none; width: 1.5rem; text-align: center; } .etape small { display: block; opacity: .8; }
+  .ok { color: var(--ok); } .echec { color: var(--ko); } .non_verifie { color: var(--ni); }
+  #verdict { font-weight: 600; margin: 1rem 0 .3rem; } pre { white-space: pre-wrap; border: 1px solid var(--bord); padding: .6rem; border-radius: .4rem; font-size: .85rem; }
+  .discret { opacity: .75; font-size: .9rem; }
+</style>
+</head>
+<body>
+<h1>Diagnostic d'étanchéité</h1>
+<p class="discret">Cette page vérifie, avec <b>ton</b> compte Microsoft et les deux liens reçus du MJ, que tu accèdes à ta table et à ton dossier, et à rien d'autre. Elle n'écrit que des fichiers « 00_diagnostic_… » dans ton dossier et les supprime. Rien n'est enregistré : les liens restent dans cette page.</p>
+
+<h2>1. Connexion</h2>
+<p id="etatConnexion">Chargement…</p>
+<p><button id="btnConnexion" class="principal" disabled>Se connecter avec Microsoft</button> <button id="btnDeconnexion" hidden>Se déconnecter</button></p>
+
+<h2>2. Les deux liens</h2>
+<label>Lien de la table (lecture)<input id="lien1" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://1drv.ms/…"></label>
+<label>Lien de ton dossier (modification)<input id="lien2" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://1drv.ms/…"></label>
+
+<h2>3. Diagnostic</h2>
+<p><button id="btnLancer" class="principal" disabled>Lancer le diagnostic</button></p>
+<div id="verdict"></div>
+<div id="etapes"></div>
+<div id="zoneRapport" hidden>
+  <h2>Rapport à envoyer au MJ</h2>
+  <pre id="rapport"></pre>
+  <p><button id="btnCopier">Copier le rapport</button> <span id="copie" class="discret"></span></p>
+  <p class="discret">Le rapport ne contient ni lien, ni jeton, ni identifiant, ni nom de dossier.</p>
+</div>
+
+<script src="./config.js"></script>
+<script src="../lib/msal-browser.min.js"></script>
+<script type="module" src="./page.js"></script>
+</body>
+</html>
