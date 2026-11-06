@@ -11,8 +11,22 @@ import { determinerRole } from "./roles.js";
 import { creerCache } from "../depot/cache.js";
 import { creerDepot } from "../depot/depot.js";
 import { trouverRacines, verifierRacinesDetail } from "../racines/racines.js";
+import { nomMemoire, ecrireMemoire, lireMemoire } from "../racines/memoire.js";
 
 const estAuth = e => e && (e.status === 401 || e.auth);
+
+/** D29 : les dossiers du joueur sont aussi retenus dans SON OneDrive (dossier d'application) ; best-effort : une panne ici ne bloque jamais, sauf 401. */
+async function lireMemoireDistante(client, profil, attendus) {
+  try { const t = await client.lireFichierApp(nomMemoire(profil.id)); return { texte: t, racines: t == null ? {} : lireMemoire(t, profil.id, attendus) }; }
+  catch (e) { if (estAuth(e)) throw e; return { texte: undefined, racines: {} }; }
+}
+async function sauvegarderMemoire(client, profil, racines, texteConnu) {
+  try {
+    const voulu = ecrireMemoire(profil.id, racines);
+    const actuel = texteConnu !== undefined ? texteConnu : await client.lireFichierApp(nomMemoire(profil.id));
+    if (actuel !== voulu) await client.ecrireFichierApp(nomMemoire(profil.id), voulu);
+  } catch (e) { if (estAuth(e)) throw e; }
+}
 
 /**
  * @param {object} o
@@ -43,6 +57,13 @@ export async function ouvrirSession({ auth, client, profil, allowed, stockage, l
   const attendus = separe ? ["table", "joueur"] : ["unique"];
   const memo = cache.lire("racines") || {};
   let racines = null, problemes = [], horsLigne = false;
+  // Mémoire de l'appareil absente ou incomplète (cache vidé, autre téléphone…) : on la retrouve dans le OneDrive du joueur, sans lien à recoller.
+  let texteDistant;
+  if (!attendus.every(r => memo[r])) {
+    const d = await lireMemoireDistante(client, profil, attendus);
+    texteDistant = d.texte;
+    for (const r of attendus) if (!memo[r] && d.racines[r]) memo[r] = d.racines[r];
+  }
 
   if (attendus.every(r => memo[r])) {
     const { etat, marqueurs } = await verifierRacinesDetail({ client, profil, racines: memo });   // 401 remonte
@@ -54,7 +75,8 @@ export async function ouvrirSession({ auth, client, profil, allowed, stockage, l
     } else {
       racines = memo; horsLigne = Object.values(etat).includes("hors_ligne");
       // le pseudo vient du marqueur lu à l'instant ; hors ligne, de celui mémorisé avec le dossier
-      if (marqueurs.joueur && marqueurs.joueur.pseudo !== memo.joueur.pseudo) { memo.joueur = { ...memo.joueur, pseudo: marqueurs.joueur.pseudo }; cache.ecrire("racines", memo); }
+      if (marqueurs.joueur && marqueurs.joueur.pseudo !== (memo.joueur && memo.joueur.pseudo)) memo.joueur = { ...memo.joueur, pseudo: marqueurs.joueur.pseudo };
+      cache.ecrire("racines", memo);   // aussi quand la mémoire vient du OneDrive du joueur : l'appareil la garde
     }
   }
 
@@ -67,5 +89,6 @@ export async function ouvrirSession({ auth, client, profil, allowed, stockage, l
       return { ...base, statut: "a_relier", problemes, manque: attendus.filter(x => !r.racines[x]) };
     }
   }
+  await sauvegarderMemoire(client, profil, racines, texteDistant);
   return { ...base, pseudo: racines.joueur && racines.joueur.pseudo, statut: "pret", problemes, horsLigne, depot: creerDepot({ client, profil, role: "joueur", racines, cache }) };
 }

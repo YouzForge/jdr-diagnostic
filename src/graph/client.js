@@ -59,6 +59,8 @@ const dormir = ms => new Promise(r => setTimeout(r, ms));
  * @param {Function} [o.attendre] async (ms) => void  (remplaçable dans les tests)
  * @param {number}   [o.essais]   nombre total d'essais quand Microsoft répond 429 / 503 / 504
  */
+const NOM_FICHIER_APP = /^[A-Za-z0-9][A-Za-z0-9_-]{0,80}\.json$/;
+
 export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, essais = 3 }) {
   if (typeof fetchFn !== "function" || typeof getToken !== "function") throw new TypeError("fetch et getToken sont obligatoires");
 
@@ -118,6 +120,18 @@ export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, 
       if (!cheminSur(rel)) throw new CheminInvalide(rel);
       try { return await (await requete(`${urlDe(noeud, rel)}/content`)).text(); }
       catch (e) { if (e.status === 404) return null; throw e; }
+    },
+
+    /** Petit fichier du dossier d'application du compte connecté (`/me/drive/special/approot`, créé par OneDrive au premier appel ; accessible avec
+     *  `Files.ReadWrite`, documenté par Microsoft). Sert à retenir, côté OneDrive du joueur, OÙ sont ses dossiers partagés (identifiants, jamais de lien). */
+    async lireFichierApp(nom) {
+      if (!NOM_FICHIER_APP.test(nom)) throw new CheminInvalide(nom);
+      try { return await (await requete(`${GRAPH}/me/drive/special/approot:/${nom}:/content`)).text(); }
+      catch (e) { if (e.status === 404) return null; throw e; }
+    },
+    async ecrireFichierApp(nom, texte) {
+      if (!NOM_FICHIER_APP.test(nom)) throw new CheminInvalide(nom);
+      await requete(`${GRAPH}/me/drive/special/approot:/${nom}:/content`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: texte });
     },
 
     async ecrireTexte(noeud, rel, texte) {
