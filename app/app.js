@@ -8,7 +8,7 @@ const $ = id => document.getElementById(id);
 const h = (tag, attrs, ...enfants) => {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) { if (k === "class") e.className = v; else if (k.startsWith("on")) e[k] = v; else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); }
-  for (const c of enfants.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  for (const c of enfants.flat(Infinity)) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
   return e;
 };
 
@@ -44,13 +44,14 @@ function ecranConnexion(message, type = "alerte") {
     h("p", {}, h("button", { class: "principal", onclick: () => auth.login() }, "Se connecter avec Microsoft")));
 }
 
+const SOURCES = { memorise: "dans la mémoire de l'appareil", lien: "par un lien", raccourci: "par un raccourci OneDrive", partagesAvecMoi: "par « Partagés avec moi »" };
 const PROBLEMES = {
   acces_retire: p => `L'accès à ${p.role === "table" ? "la table" : "ton dossier"} a été retiré ou n'existe plus : redemande un lien au MJ.`,
   marqueur_change: p => `Le dossier « ${p.role === "table" ? "table" : "joueur"} » ne ressemble plus à celui d'avant : redemande un lien au MJ.`,
   lien: p => `Le lien n° ${p.numero} n'ouvre rien avec ce compte. Vérifie que tu es connecté avec le bon compte Microsoft, ou redemande un lien au MJ.`,
   ambigu: p => `Plusieurs dossiers « ${p.role} » sont partagés avec ce compte : demande au MJ d'en retirer un.`,
   coffre_partage: () => "Attention : le coffre du MJ est partagé avec ce compte. Préviens le MJ tout de suite : cette application ne l'utilisera jamais.",
-  marqueur_illisible: () => "Un dossier partagé n'a pas pu être lu (réseau ou blocage). Réessaie.",
+  marqueur_illisible: p => `Un dossier retrouvé ${SOURCES[p.source] || "ailleurs"} n'a pas pu être lu (${p.status ? "code " + p.status : "réseau ou blocage"}). ${p.status === 403 ? "C'est sans doute un ancien partage ou raccourci : il est ignoré." : "Il est ignoré ; réessaie si un dossier manque."}`,
   reseau: () => "Microsoft ne répond pas pour le moment. Réessaie dans un instant.",
   dossier_mj_introuvable: () => "Le dossier du JDR est introuvable sur ton OneDrive."
 };
@@ -132,7 +133,10 @@ async function route() {
 async function compteNonAutorise() {
   // L'empreinte (SHA-256 de l'adresse, pas l'adresse) permet au MJ d'autoriser ce compte sans connaître l'adresse écrite dans le code.
   let empreinte = ""; try { empreinte = await auth.empreinte(); } catch { /* sans empreinte */ }
-  ecranConnexion("Ce compte n'est pas autorisé pour ce JDR. Connecte-toi avec le compte donné par le MJ.", "erreur");
+  session = null; entete();
+  montrer(h("h2", {}, profil.nom), bandeau("Le compte Microsoft avec lequel tu es connecté n'est pas autorisé pour ce JDR.", "erreur"),
+    h("p", {}, "Si le MJ t'a donné un autre compte, change de compte ci-dessous."),
+    h("p", {}, h("button", { class: "principal", onclick: () => auth.logout() }, "Changer de compte")));
   if (empreinte) $("contenu").append(h("p", { class: "discret" }, "Si c'est bien le bon compte, envoie cette empreinte au MJ : "), h("p", { class: "discret", id: "empreinte", style: "word-break:break-all;user-select:all" }, empreinte));
 }
 
