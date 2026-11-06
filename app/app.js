@@ -106,6 +106,13 @@ async function ecranMenu(mien = nav) {
     h("h2", {}, profil.nom), items.length ? h("ul", { class: "liste" }, items) : h("p", {}, "Rien à afficher pour l'instant."));
 }
 
+/** Badge de visibilité (MJ). Une visibilité absente ou inconnue n'est PAS un secret voulu : la fiche est cachée aux joueurs par prudence, et le badge le dit. */
+function badgeVisibilite(f) {
+  if (f.visibiliteOrigine === "absente") return h("span", { class: "badge sans", title: "Aucune visibilité écrite : fiche cachée aux joueurs par prudence." }, "Sans visibilité");
+  if (f.visibiliteOrigine === "inconnue") return h("span", { class: "badge sans", title: "Valeur de visibilité non reconnue : fiche cachée aux joueurs par prudence." }, "Visibilité non reconnue");
+  return h("span", { class: "badge " + f.visibilite }, profil.securite.visibilites?.[f.visibilite] || f.visibilite);
+}
+
 async function ecranListe(colId, pseudo, mien = nav) {
   const col = collectionsVisibles(profil, session.role).find(c => c.id === colId);
   if (!col) return ecranMenu(mien);
@@ -117,7 +124,7 @@ async function ecranListe(colId, pseudo, mien = nav) {
     r.illisibles.length ? bandeau(`${r.illisibles.length} fichier(s) n'ont pas pu être lus.`) : null,
     r.absent || !r.fiches.length ? h("p", { class: "discret" }, "Rien ici pour l'instant.") :
       h("ul", { class: "liste" }, r.fiches.map(f => h("li", {}, h("a", { href: `#/f/${encodeURIComponent(col.id)}/${encodeURIComponent(f.fichier)}${pseudo ? "/" + encodeURIComponent(pseudo) : ""}` },
-        h("span", { style: "flex:1" }, f.nom), session.role === "mj" && f.visibilite !== "accessible" ? h("span", { class: "badge " + f.visibilite }, profil.securite.visibilites?.[f.visibilite] || f.visibilite) : null)))));
+        h("span", { style: "flex:1" }, f.nom), session.role === "mj" && f.visibilite !== "accessible" ? badgeVisibilite(f) : null)))));
 }
 
 async function ecranFiche(colId, pseudo, fichier, mien = nav) {

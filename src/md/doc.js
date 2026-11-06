@@ -103,3 +103,13 @@ export function lireVisibilite(meta, valides = ["accessible", "conditionnel", "s
   const v = norm(meta && meta.visibilite != null ? meta.visibilite : "");
   return valides.includes(v) ? v : "secret";
 }
+
+/**
+ * D'où vient la visibilité lue : « declaree » (valeur reconnue), « absente » (champ manquant ou vide) ou « inconnue » (valeur non reconnue, souvent une faute de frappe).
+ * Information d'affichage pour le MJ seulement : la fiche reste SECRÈTE dans les deux derniers cas (voir `lireVisibilite`).
+ */
+export function origineVisibilite(meta, valides = ["accessible", "conditionnel", "secret"]) {
+  const brut = meta && meta.visibilite != null ? norm(meta.visibilite) : "";
+  if (valides.includes(brut)) return "declaree";
+  return brut === "" ? "absente" : "inconnue";
+}

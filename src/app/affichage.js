@@ -44,7 +44,7 @@ function texteChamp(def, v) {
 
 /**
  * Fiche prête à afficher, ou `null` si ce rôle ne doit pas la voir.
- * @returns {{fichier:string, nom:string, visibilite:string, champs:{cle:string,libelle:string,valeur:string,type:string}[], blocs:object[]}|null}
+ * @returns {{fichier:string, nom:string, visibilite:string, visibiliteOrigine:string, champs:{cle:string,libelle:string,valeur:string,type:string}[], blocs:object[]}|null}
  */
 export function preparerFiche(profil, role, col, fiche) {
   if (!ficheVisible(profil, role, col, fiche)) return null;
@@ -61,5 +61,5 @@ export function preparerFiche(profil, role, col, fiche) {
     corps = sections(corps).filter(s => !s.title || !contient(s.title, m.sections))
       .map(s => (s.title ? `## ${s.title}\n` : "") + s.text).join("\n");
   }
-  return { fichier: fiche.fichier, nom: fiche.nom, visibilite: fiche.visibilite, champs, blocs: blocsMarkdown(corps, { titreARetirer: fiche.nom }) };
+  return { fichier: fiche.fichier, nom: fiche.nom, visibilite: fiche.visibilite, visibiliteOrigine: fiche.visibiliteOrigine || "declaree", champs, blocs: blocsMarkdown(corps, { titreARetirer: fiche.nom }) };
 }

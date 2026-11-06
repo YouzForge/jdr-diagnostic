@@ -18,7 +18,7 @@ textarea { font: inherit; width: 100%; min-height: 7rem; padding: .6rem; border-
 .liste a, .liste button.carte { display: flex; align-items: center; gap: .7rem; width: 100%; text-align: left; padding: .8rem 1rem; border: 1px solid var(--bord); border-radius: .7rem; background: var(--carte); color: inherit; text-decoration: none; min-height: 3.2rem; }
 .liste small { display: block; color: var(--doux); }
 .badge { font-size: .75rem; padding: .1rem .5rem; border-radius: 1rem; border: 1px solid var(--bord); color: var(--doux); white-space: nowrap; }
-.badge.secret { color: var(--erreur); border-color: var(--erreur); } .badge.conditionnel { color: var(--alerte); border-color: var(--alerte); }
+.badge.secret { color: var(--erreur); border-color: var(--erreur); } .badge.sans { color: var(--alerte); border-color: var(--alerte); border-style: dashed; } .badge.conditionnel { color: var(--alerte); border-color: var(--alerte); }
 .bandeau { padding: .6rem .8rem; border-radius: .6rem; margin: 0 0 1rem; border: 1px solid var(--bord); }
 .bandeau.alerte { border-color: var(--alerte); color: var(--alerte); } .bandeau.erreur { border-color: var(--erreur); color: var(--erreur); }
 .champs { display: grid; grid-template-columns: max-content 1fr; gap: .2rem 1rem; margin: 0 0 1rem; } .champs dt { color: var(--doux); } .champs dd { margin: 0; }

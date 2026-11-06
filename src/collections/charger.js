@@ -1,5 +1,5 @@
 // Chargement des fiches d'une collection du profil. Même code pour tous les JDR : tout vient du profil.
-import { parseDoc, humanize, lireVisibilite } from "../md/doc.js";
+import { parseDoc, humanize, lireVisibilite, origineVisibilite } from "../md/doc.js";
 import { pool } from "../graph/pool.js";
 
 /** Fichiers qu'une collection ne présente jamais : modèles (« 00_… ») et fichiers LISEZMOI. */
@@ -22,7 +22,7 @@ export function versFiche(profil, col, fichier, texte) {
   const d = parseDoc(texte);
   const nom = d.meta.nom || d.meta.titre || d.title || humanize(fichier);
   const defini = profil.securite && profil.securite.visibilites ? Object.keys(profil.securite.visibilites) : undefined;
-  return { col: col.id, fichier, nom: String(nom), meta: d.meta, corps: d.body, visibilite: lireVisibilite(d.meta, defini) };
+  return { col: col.id, fichier, nom: String(nom), meta: d.meta, corps: d.body, visibilite: lireVisibilite(d.meta, defini), visibiliteOrigine: origineVisibilite(d.meta, defini) };
 }
 
 /** Toutes les fiches d'une collection. → { fiches, perime, absent } ; les fichiers illisibles sont comptés, pas ignorés en silence. */
