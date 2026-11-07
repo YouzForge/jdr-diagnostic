@@ -42,7 +42,7 @@ export function finEnTexte(s, prenom = "l'aventurière") {
 /** Libellé de la pastille d'une voie : pouvoir demandé, « Pas encore » si verrouillée, sinon « Automatique ». */
 export function pastilleVoie(v) {
   if (v.verrou) return "Pas encore" + (v.pouvoir ? " · " + v.pouvoir : "");
-  if (v.pouvoir) return v.pouvoir + (/loup|[ée]p[ée]e|combat|pouvoir/i.test(v.pouvoir) ? " · 2d6" : "");
+  if (v.pouvoir) return v.pouvoir + " · 2d6";      // le contrat : un pouvoir entre parenthèses demande un jet, quel que soit son nom
   return "Automatique";
 }
 
