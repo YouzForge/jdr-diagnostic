@@ -294,9 +294,19 @@ async function lancer(liens = [], message) {
     entete();
     if (session.statut === "a_relier") return await ecranLiaison(session, message);
     if (session.statut === "dossier_mj_introuvable") return montrer(session.problemes.map(p => bandeau(PROBLEMES[p.type](p), "erreur")));
+    if (profil.application === "conteur") return await lancerConteur();
     if (location.hash && location.hash !== "#/") return route();
     return ecranMenu(++nav);
   } catch (e) { gerer(e); }
+}
+
+/** Application « conteur » (JDR pour enfant) : elle prend tout l'écran ; le menu générique du moteur n'est plus utilisé. */
+let conteur = null;
+async function lancerConteur() {
+  window.removeEventListener("hashchange", route);
+  if (conteur) { document.body.classList.add("conteur"); conteur.session = session; conteur.ctx.session = session; conteur.ctx.depot = session.depot; return conteur.afficher(); }
+  const { demarrerConteur } = await import("./conteur/index.js");
+  conteur = demarrerConteur({ profil, session, auth, ecriture: ecritureActive(), surErreur: e => { document.body.classList.remove("conteur"); gerer(e); } });
 }
 
 async function chargerLeProfil() {

@@ -1,16 +1,17 @@
 {
   "schema": 2,
   "id": "type_enfant",
-  "nom": "JDR type — enfant (histoires)",
+  "nom": "JDR type — enfant (histoires du soir)",
   "dossier": "JDR - TYPE Enfant",
   "public": "enfant",
   "langue": "fr",
-  "ton": "doux, simple, encourageant",
+  "ton": "Tendre, rigolo, jamais effrayant. Pensé pour un jeune enfant.",
+  "application": "conteur",
   "vocabulaire": {
-    "mj": "conteur",
+    "mj": "parent conteur",
     "joueur": "aventurier",
     "pj": "héros",
-    "session": "histoire",
+    "session": "histoire du soir",
     "campagne": "grande aventure"
   },
   "theme": {
@@ -20,17 +21,55 @@
   },
   "securite": {
     "mode": "unique",
-    "note": "Un seul dossier, tout est visible par qui y a accès."
+    "note": "Un seul enfant, un seul dossier : pas de coffre séparé. Le mode parent de l'application s'ouvre par un appui long de 3 secondes."
   },
   "joueur_modele": null,
+  "heros": {
+    "dossier_journal": "05_Journal",
+    "dossier_fiche": "03_Personnages"
+  },
   "collections": [
     {
       "id": "histoire",
-      "label": "Histoires",
-      "singular": "Histoire",
+      "label": "Histoires jouées",
+      "singular": "histoire",
       "icone": "book",
       "zone": "unique",
-      "dossier": "01_Histoires",
+      "dossier": "01_Histoires_Jouees",
+      "champs": [
+        {
+          "k": "titre",
+          "l": "Titre",
+          "t": "text",
+          "req": true
+        },
+        {
+          "k": "date",
+          "l": "Date jouée",
+          "t": "text"
+        },
+        {
+          "k": "statut",
+          "l": "Statut",
+          "t": "enum:idée|prête|jouée"
+        }
+      ],
+      "sections": [
+        "Résumé",
+        "Ce qui s'est passé",
+        "Les phrases du héros",
+        "Objets gagnés",
+        "Lieux visités"
+      ],
+      "couleur": "#C23B2E"
+    },
+    {
+      "id": "prochaine",
+      "label": "Histoires en attente",
+      "singular": "histoire",
+      "icone": "book",
+      "zone": "unique",
+      "dossier": "02_Campagne/Prochaines",
       "champs": [
         {
           "k": "titre",
@@ -41,21 +80,47 @@
         {
           "k": "statut",
           "l": "Statut",
-          "t": "enum:idee|prete|racontee"
+          "t": "enum:idée|prête|jouée",
+          "req": true
         }
       ],
       "sections": [
-        "Résumé",
         "Étapes de jeu"
-      ]
+      ],
+      "contrat": {
+        "titre_section_jeu": "## Étapes de jeu",
+        "format_etape": "### Étape N — Titre"
+      },
+      "couleur": "#2F5FA8"
+    },
+    {
+      "id": "univers",
+      "label": "Idées d'univers",
+      "singular": "idée",
+      "icone": "map",
+      "zone": "unique",
+      "dossier": "02_Campagne/Univers",
+      "champs": [
+        {
+          "k": "nom",
+          "l": "Nom",
+          "t": "text",
+          "req": true
+        }
+      ],
+      "sections": [
+        "Description",
+        "Pourquoi cette idée"
+      ],
+      "couleur": "#6B3FA0"
     },
     {
       "id": "personnage",
       "label": "Personnages",
-      "singular": "Personnage",
-      "icone": "person",
+      "singular": "personnage",
+      "icone": "friends",
       "zone": "unique",
-      "dossier": "02_Personnages",
+      "dossier": "03_Personnages",
       "champs": [
         {
           "k": "nom",
@@ -64,46 +129,119 @@
           "req": true
         },
         {
-          "k": "portrait",
-          "l": "Portrait",
-          "t": "image"
+          "k": "apparence",
+          "l": "Ce que le héros voit : une phrase, sans spoiler",
+          "t": "text"
         },
         {
-          "k": "lieu",
-          "l": "Habite à",
-          "t": "ref:lieu"
+          "k": "photo",
+          "l": "Photo",
+          "t": "image"
         }
       ],
       "sections": [
-        "Description"
-      ]
+        "Qui est-ce",
+        "Ce que le héros a fait avec lui",
+        "Notes du MJ"
+      ],
+      "couleur": "#F2B63D"
     },
     {
-      "id": "lieu",
-      "label": "Lieux",
-      "singular": "Lieu",
-      "icone": "map",
+      "id": "compagnon",
+      "label": "Compagnons",
+      "singular": "compagnon",
+      "icone": "paw",
       "zone": "unique",
-      "dossier": "03_Lieux",
+      "dossier": "03_Personnages/Compagnons",
+      "champs": [
+        {
+          "k": "nom",
+          "l": "Nom donné par le héros",
+          "t": "text",
+          "req": true
+        },
+        {
+          "k": "animal",
+          "l": "Animal du bestiaire",
+          "t": "ref:creature"
+        },
+        {
+          "k": "categorie",
+          "l": "Type",
+          "t": "enum:terre|vole|nage"
+        },
+        {
+          "k": "coeurs",
+          "l": "Cœurs",
+          "t": "int"
+        },
+        {
+          "k": "pouvoirs",
+          "l": "Pouvoirs (un par ligne)",
+          "t": "text"
+        },
+        {
+          "k": "photo",
+          "l": "Photo",
+          "t": "image"
+        }
+      ],
+      "sections": [
+        "Comment il a été apprivoisé",
+        "Ce qu'il a fait"
+      ],
+      "couleur": "#C23B2E"
+    },
+    {
+      "id": "creature",
+      "label": "Bestiaire",
+      "singular": "créature",
+      "icone": "monster",
+      "zone": "unique",
+      "dossier": "04_Bestiaire",
       "champs": [
         {
           "k": "nom",
           "l": "Nom",
           "t": "text",
           "req": true
+        },
+        {
+          "k": "coeurs",
+          "l": "Cœurs",
+          "t": "int",
+          "req": true
+        },
+        {
+          "k": "boss",
+          "l": "Boss",
+          "t": "bool"
+        },
+        {
+          "k": "apparence",
+          "l": "Ce que le héros voit : une phrase",
+          "t": "text"
+        },
+        {
+          "k": "photo",
+          "l": "Photo du monstro-carton",
+          "t": "image"
         }
       ],
       "sections": [
-        "Description"
-      ]
+        "Description",
+        "Comportement",
+        "Pourquoi il agit ainsi"
+      ],
+      "couleur": "#6B3FA0"
     },
     {
       "id": "objet",
       "label": "Objets",
-      "singular": "Objet",
-      "icone": "gem",
+      "singular": "objet",
+      "icone": "sword",
       "zone": "unique",
-      "dossier": "04_Objets",
+      "dossier": "05_Journal/Objets",
       "champs": [
         {
           "k": "nom",
@@ -112,26 +250,78 @@
           "req": true
         },
         {
-          "k": "porte_par",
-          "l": "Porté par",
-          "t": "ref:personnage"
+          "k": "photo",
+          "l": "Photo",
+          "t": "image"
         }
       ],
       "sections": [
-        "Description"
-      ]
+        "Description",
+        "D'où il vient"
+      ],
+      "couleur": "#1F6F5E"
+    },
+    {
+      "id": "lieu",
+      "label": "Lieux",
+      "singular": "lieu",
+      "icone": "pin",
+      "zone": "unique",
+      "dossier": "05_Journal/Lieux",
+      "champs": [
+        {
+          "k": "nom",
+          "l": "Nom",
+          "t": "text",
+          "req": true
+        },
+        {
+          "k": "carte",
+          "l": "Position sur la carte (x,y de 0 à 100)",
+          "t": "text"
+        },
+        {
+          "k": "photo",
+          "l": "Photo",
+          "t": "image"
+        }
+      ],
+      "sections": [
+        "Description",
+        "Ce qui s'y est passé"
+      ],
+      "couleur": "#2F5FA8"
     }
   ],
   "modules": {
     "coeurs": {
       "actif": true,
       "depart": 3,
-      "jamais_mort": true
+      "armure_depart": 0,
+      "jamais_mort": true,
+      "repos_de_nuit": "Une nuit de repos rend tous les cœurs."
     },
     "des": {
       "actif": true,
       "types": [
         "2d6"
+      ],
+      "regle": "Réussite si au moins un dé affiche 5 ou 6 (les doubles comptent) : 2 fois sur 3. Seuls les pouvoirs demandent un jet.",
+      "seuil": 5
+    },
+    "voies": {
+      "actif": true,
+      "max_par_tache": 3,
+      "types": [
+        "enquêter",
+        "parler",
+        "se battre",
+        "forcer",
+        "ruser",
+        "autre chemin",
+        "réfléchir",
+        "objet ou compagnon",
+        "coopérer"
       ]
     },
     "pieces": {
@@ -144,27 +334,98 @@
       "titre_section": "## Étapes de jeu"
     },
     "recap": {
-      "actif": true
+      "actif": true,
+      "compte_rendu": "histoire",
+      "modele": "99_Modeles/Modele_Recap_du_soir.md",
+      "heures": [
+        6,
+        20,
+        21,
+        22,
+        23
+      ],
+      "minute": 41
     },
     "journal": {
       "actif": true
+    },
+    "notes_mj": {
+      "actif": true,
+      "inbox": "06_Notes_MJ/Inbox_Idees.md",
+      "traitement_automatique": "tâche planifiée 7 h et 17 h",
+      "heures": [
+        7,
+        17
+      ]
     },
     "photos": {
       "actif": true,
       "dossier": "08_Photos"
     },
-    "notes_mj": {
-      "actif": true
-    },
-    "voies": {
-      "actif": false
-    },
     "carte": {
-      "actif": false
+      "actif": true
     },
     "importation": {
       "actif": false
+    },
+    "potions": {
+      "actif": true,
+      "catalogue": {
+        "vie": {
+          "nom": "Potion de vie",
+          "moitie": 1,
+          "entiere": 2
+        }
+      }
+    },
+    "objets": {
+      "actif": true,
+      "catalogue": [
+        {
+          "id": "potion_vie",
+          "nom": "Potion de vie",
+          "couleur": "#C23B2E",
+          "icone": "potion",
+          "motif": "potion de vie",
+          "emojis": [
+            "🧪"
+          ]
+        },
+        {
+          "id": "epee",
+          "nom": "Épée",
+          "couleur": "#B4BBC3",
+          "icone": "sword",
+          "motif": "[ée]p[ée]e",
+          "equipe": true,
+          "emojis": [
+            "⚔️",
+            "⚔"
+          ]
+        },
+        {
+          "id": "casque",
+          "nom": "Casque en fer",
+          "couleur": "#7F95AB",
+          "icone": "helmet",
+          "motif": "casque",
+          "equipe": true,
+          "emojis": [
+            "🪖"
+          ]
+        },
+        {
+          "id": "piece",
+          "nom": "Pièce",
+          "couleur": "#F2B81C",
+          "icone": "coin",
+          "motif": "^\\s*[-*]?\\s*(🪙\\s*)?pi[èe]ce\\b",
+          "emojis": [
+            "🪙"
+          ]
+        }
+      ]
     }
   },
-  "note": "Profil type pour un public enfant : mode dossier unique, ton doux, cœurs et pièces qui ne se perdent jamais, dé 2d6, étapes de jeu. Point de départ à adapter ; les règles qui manquent restent « À répondre »."
+  "note": "Profil de base des JDR pour enfant (application « conteur », identique à Petite Feuille). Règles de départ modifiables : cœurs, armure, dés, voies, potions, pièces, catalogue d'objets."
 }

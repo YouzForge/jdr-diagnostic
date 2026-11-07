@@ -15,6 +15,8 @@ export const MODULES = Object.freeze({
   coeurs:      { public: "enfant", roles: ["mj", "joueur"], jalon: "v1.0", libelle: "Cœurs de vie" },
   voies:       { public: "enfant", roles: ["mj", "joueur"], jalon: "v1.0", libelle: "Voies (manières d'agir)" },
   pieces:      { public: "enfant", roles: ["mj", "joueur"], jalon: "v1.0", libelle: "Pièces (bourse)" },
+  objets:      { public: "enfant", roles: ["mj", "joueur"], jalon: "v1.0", libelle: "Catalogue d'objets (couleurs et icônes)" },
+  potions:     { public: "enfant", roles: ["mj", "joueur"], jalon: "v1.0", libelle: "Potions (boire en deux fois)" },
   jouer:       { public: "enfant", roles: ["mj", "joueur"], jalon: "v1.0", libelle: "Mode Jouer pas à pas" },
   recap:       { public: "tous",   roles: ["mj", "joueur"], jalon: "v1.0", libelle: "Récapitulatif de session" },
   journal:     { public: "tous",   roles: ["mj", "joueur"], jalon: "v1.0", libelle: "Journal" },

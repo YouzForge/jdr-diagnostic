@@ -139,6 +139,27 @@ export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, 
       catch (e) { if (e.status === 404) return null; throw e; }
     },
 
+    /** Contenu binaire d'un fichier (image), ou `null` s'il n'existe pas. */
+    async lireOctets(noeud, rel) {
+      if (!cheminSur(rel)) throw new CheminInvalide(rel);
+      try { return await (await requete(`${urlDe(noeud, rel)}/content`)).blob(); }
+      catch (e) { if (e.status === 404) return null; throw e; }
+    },
+
+    /** Crée un fichier binaire NOUVEAU (image). Refuse s'il existe déjà. → { etag } */
+    async creerOctets(noeud, rel, blob, type) {
+      if (!cheminSur(rel)) throw new CheminInvalide(rel);
+      if (await api.infos(noeud, rel)) throw new FicheExiste(rel);
+      try {
+        const r = await requete(`${urlDe(noeud, rel)}/content?@microsoft.graph.conflictBehavior=fail`, { method: "PUT", headers: { "Content-Type": type || "application/octet-stream" }, body: blob });
+        return { etag: await etagDe(r) };
+      } catch (e) {
+        if (e.status === 409 || e.status === 412) throw new FicheExiste(rel);
+        if (e.status === 423) throw new FicheVerrouillee(rel);
+        throw e;
+      }
+    },
+
     /** Petit fichier du dossier d'application du compte connecté (`/me/drive/special/approot`, créé par OneDrive au premier appel ; accessible avec
      *  `Files.ReadWrite`, documenté par Microsoft). Sert à retenir, côté OneDrive du joueur, OÙ sont ses dossiers partagés (identifiants, jamais de lien). */
     async lireFichierApp(nom) {

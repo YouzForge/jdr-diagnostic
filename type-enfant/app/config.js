@@ -12,5 +12,5 @@ window.JDR_APP = {
     ]
   },
   "ecriture": true,
-  "racineMJ": "Documents/JDR/0 - BASE APPLICATION POUR JDR/08_Tests_reels/JDR - TYPE Enfant"
+  "racineMJ": "Documents/JDR/0 - BASE APPLICATION POUR JDR/08_Tests_reels/JDR - TYPE Enfant conteur"
 };

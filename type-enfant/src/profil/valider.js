@@ -14,6 +14,9 @@ const PORTEES = ["monde", "table"];
 const RE_ID = /^[a-z][a-z0-9_]*$/;
 const HABILLAGES = ["sobre", "conte"];
 const RE_COULEUR = /^#[0-9a-fA-F]{6}$/;
+const APPLICATIONS = ["standard", "conteur"];
+/** Collections dont l'application « conteur » (JDR pour enfant) a besoin. */
+export const COLLECTIONS_CONTEUR = ["histoire", "prochaine", "personnage", "compagnon", "creature", "objet", "lieu"];
 
 function estObjet(x) {
   return x !== null && typeof x === "object" && !Array.isArray(x);
@@ -257,6 +260,31 @@ export function validerProfil(prof) {
     }
     const m = rc.minute === undefined ? 41 : rc.minute;
     if (!(Number.isInteger(m) && m >= 0 && m <= 59)) err("module recap : « minute » doit être un entier de 0 à 59");
+  }
+  // ── application « conteur » : l'application pour enfant (le téléphone du parent sert de socle) ──
+  if (prof.application !== undefined) {
+    if (!APPLICATIONS.includes(prof.application)) err(`« application » doit valoir ${APPLICATIONS.join(" ou ")} (reçu : ${JSON.stringify(prof.application)})`);
+    else if (prof.application === "conteur") {
+      if (!prof.securite || prof.securite.mode !== "unique") err("application « conteur » : la sécurité doit être en mode « unique » (un seul dossier, le téléphone du parent sert de socle)");
+      if (prof.public === "adulte") err("application « conteur » : réservée aux JDR pour enfant (public « enfant » ou « tous »)");
+      for (const c of COLLECTIONS_CONTEUR) if (!ids.includes(c)) err(`application « conteur » : la collection « ${c} » est obligatoire`);
+      for (const m of ["recap", "jouer"]) if (!estObjet(mods[m]) || mods[m].actif !== true) err(`application « conteur » : le module « ${m} » doit être actif`);
+      if (prof.heros !== undefined && (!estObjet(prof.heros) || (prof.heros.dossier_journal !== undefined && typeof prof.heros.dossier_journal !== "string"))) err("« heros » doit être un objet (dossier_journal : texte)");
+      const cat = estObjet(mods.objets) ? mods.objets.catalogue : undefined;
+      if (cat !== undefined) {
+        if (!Array.isArray(cat)) err("module objets : « catalogue » doit être une liste");
+        else cat.forEach((o, i) => {
+          if (!estObjet(o) || typeof o.id !== "string" || !RE_ID.test(o.id)) return err(`module objets : objet n° ${i + 1} : « id » obligatoire (minuscules, chiffres et _)`);
+          if (typeof o.nom !== "string" || !o.nom.trim()) err(`module objets : « ${o.id} » : « nom » obligatoire`);
+          if (typeof o.couleur !== "string" || !RE_COULEUR.test(o.couleur)) err(`module objets : « ${o.id} » : « couleur » doit être #rrggbb`);
+          if (o.motif !== undefined) { try { new RegExp(o.motif, "i"); } catch { err(`module objets : « ${o.id} » : « motif » n'est pas une expression régulière valide`); } }
+        });
+      }
+      const vo = estObjet(mods.voies) ? mods.voies : null;
+      if (vo && vo.max_par_tache !== undefined && !(Number.isInteger(vo.max_par_tache) && vo.max_par_tache >= 1 && vo.max_par_tache <= 6)) err("module voies : « max_par_tache » doit être un entier de 1 à 6");
+      const co = estObjet(mods.coeurs) ? mods.coeurs : null;
+      if (co && co.depart !== undefined && !(Number.isInteger(co.depart) && co.depart >= 1 && co.depart <= 20)) err("module coeurs : « depart » doit être un entier de 1 à 20");
+    }
   }
   // règle non définie : le moteur ne la devine jamais
   if (mods.d100 && mods.d100.actif && mods.d100.reussite === "A_PRECISER") {
