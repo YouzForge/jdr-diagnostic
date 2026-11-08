@@ -12,6 +12,11 @@ const ZONES_SEPARE = ["mj", "table", "joueur"];
 const ZONES_UNIQUE = ["unique"];
 const PORTEES = ["monde", "table"];
 const RE_ID = /^[a-z][a-z0-9_]*$/;
+const HABILLAGES = ["sobre", "conte"];
+const RE_COULEUR = /^#[0-9a-fA-F]{6}$/;
+const APPLICATIONS = ["standard", "conteur", "joueur"];
+/** Collections dont l'application « conteur » (JDR pour enfant) a besoin. */
+export const COLLECTIONS_CONTEUR = ["histoire", "prochaine", "personnage", "compagnon", "creature", "objet", "lieu"];
 
 function estObjet(x) {
   return x !== null && typeof x === "object" && !Array.isArray(x);
@@ -28,6 +33,42 @@ function aRemontee(chemin) {
 function commencePar(chemin, racine) {
   const c = norm(chemin), r = norm(racine);
   return c === r || c.startsWith(r + "/");
+}
+
+/** Règles du module d100 pour l'application « joueur » : jamais devinées (règle 8), donc la réussite doit être écrite (D35). */
+function validerD100Joueur(d, err) {
+  const r = d.reussite;
+  if (!estObjet(r)) err("module d100 : « reussite » doit être un objet {comparaison, critique_reussite_max, critique_echec_min} (règle de réussite non écrite : le moteur ne la devine pas)");
+  else {
+    if (r.comparaison !== "inferieur_ou_egal") err("module d100 : reussite.comparaison : seule la valeur « inferieur_ou_egal » est prise en charge");
+    const cr = r.critique_reussite_max, ce = r.critique_echec_min;
+    if (!(Number.isInteger(cr) && cr >= 0 && cr <= 50)) err("module d100 : reussite.critique_reussite_max doit être un entier de 0 à 50");
+    if (!(Number.isInteger(ce) && ce >= 51 && ce <= 100)) err("module d100 : reussite.critique_echec_min doit être un entier de 51 à 100");
+  }
+  if (d.multiplicateur_total !== undefined && !(Number.isInteger(d.multiplicateur_total) && d.multiplicateur_total >= 1 && d.multiplicateur_total <= 100)) err("module d100 : « multiplicateur_total » doit être un entier de 1 à 100");
+  if (!Array.isArray(d.caracteristiques) || !d.caracteristiques.length) err("module d100 : « caracteristiques » (liste de {id, nom}) obligatoire pour l'application « joueur »");
+  else {
+    const vus = new Set();
+    d.caracteristiques.forEach((c, i) => {
+      if (!estObjet(c) || typeof c.id !== "string" || !RE_ID.test(c.id) || typeof c.nom !== "string" || !c.nom.trim()) return err(`module d100 : caractéristique n° ${i + 1} : « id » (minuscules, chiffres, _) et « nom » obligatoires`);
+      if (vus.has(c.id)) err(`module d100 : caractéristique « ${c.id} » en double`);
+      vus.add(c.id);
+    });
+  }
+  if (d.classes !== undefined) {
+    if (!Array.isArray(d.classes)) err("module d100 : « classes » doit être une liste");
+    else {
+      const vus = new Set();
+      d.classes.forEach((c, i) => {
+        if (!estObjet(c) || typeof c.id !== "string" || !RE_ID.test(c.id)) return err(`module d100 : classe n° ${i + 1} : « id » obligatoire (minuscules, chiffres, _)`);
+        if (vus.has(c.id)) err(`module d100 : classe « ${c.id} » en double`);
+        vus.add(c.id);
+        if (c.nom !== undefined && (typeof c.nom !== "string" || !c.nom.trim())) err(`module d100 : classe « ${c.id} » : « nom » doit être un texte`);
+        if (c.bloc !== undefined && (typeof c.bloc !== "string" || !c.bloc.trim())) err(`module d100 : classe « ${c.id} » : « bloc » doit être un texte`);
+        if (c.budget_competences !== undefined && !(Number.isInteger(c.budget_competences) && c.budget_competences >= 0)) err(`module d100 : classe « ${c.id} » : « budget_competences » doit être un entier`);
+      });
+    }
+  }
 }
 
 export function validerProfil(prof) {
@@ -52,6 +93,14 @@ export function validerProfil(prof) {
   }
   if (!PUBLICS_PROFIL.includes(prof.public)) {
     err(`« public » doit valoir ${PUBLICS_PROFIL.join(", ")}`);
+  }
+
+  // ── apparence (facultative : n'affecte que l'affichage) ──
+  if (prof.theme !== undefined) {
+    if (!estObjet(prof.theme)) err("« theme » doit être un objet");
+    else if (prof.theme.habillage !== undefined && !HABILLAGES.includes(prof.theme.habillage)) {
+      err(`« theme.habillage » doit valoir ${HABILLAGES.join(" ou ")} (reçu : ${JSON.stringify(prof.theme.habillage)})`);
+    }
   }
 
   // ── sécurité ──
@@ -112,6 +161,7 @@ export function validerProfil(prof) {
       err(`${cid} : portée « ${c.portee} » inconnue (permises : ${PORTEES.join(", ")})`);
     }
     if (typeof c.dossier !== "string" || c.dossier.trim() === "") err(`${cid} : « dossier » obligatoire`);
+    if (c.couleur !== undefined && !RE_COULEUR.test(String(c.couleur))) err(`${cid} : « couleur » doit s'écrire #rrggbb (reçu : ${JSON.stringify(c.couleur)})`);
     const champs = Array.isArray(c.champs) ? c.champs : [];
     const cles = champs.map((ch) => ch && ch.k);
     if (cles.includes("collection")) err(`${cid} : « collection » est une clé réservée`);
@@ -246,6 +296,48 @@ export function validerProfil(prof) {
     }
     const m = rc.minute === undefined ? 41 : rc.minute;
     if (!(Number.isInteger(m) && m >= 0 && m <= 59)) err("module recap : « minute » doit être un entier de 0 à 59");
+  }
+  // ── application « conteur » : l'application pour enfant (le téléphone du parent sert de socle) ──
+  if (prof.application !== undefined) {
+    if (!APPLICATIONS.includes(prof.application)) err(`« application » doit valoir ${APPLICATIONS.join(" ou ")} (reçu : ${JSON.stringify(prof.application)})`);
+    else if (prof.application === "joueur") {
+      // application « joueur » (JDR adulte à secrets) : fiche d100, sac, savoirs, quêtes, journal, rencontres, notes, carte (D34 à D41)
+      if (!prof.securite || prof.securite.mode !== "separe") err("application « joueur » : la sécurité doit être en mode « separe » (coffre MJ, table, dossier par joueur)");
+      if (prof.public === "enfant") err("application « joueur » : réservée aux JDR adultes (public « adulte » ou « tous »)");
+      const d = mods.d100;
+      if (!estObjet(d) || d.actif !== true) err("application « joueur » : le module « d100 » doit être actif");
+      else validerD100Joueur(d, err);
+      const jm = estObjet(prof.joueur_modele) ? prof.joueur_modele : null;
+      if (jm && Array.isArray(jm.dossiers)) {
+        const vus = new Set();
+        for (const dd of jm.dossiers) {
+          if (!estObjet(dd) || typeof dd.id !== "string" || typeof dd.dossier !== "string") continue;
+          if (vus.has(dd.id)) err(`application « joueur » : joueur_modele.dossiers : « ${dd.id} » en double`);
+          vus.add(dd.id);
+        }
+      }
+    }
+    else if (prof.application === "conteur") {
+      if (!prof.securite || prof.securite.mode !== "unique") err("application « conteur » : la sécurité doit être en mode « unique » (un seul dossier, le téléphone du parent sert de socle)");
+      if (prof.public === "adulte") err("application « conteur » : réservée aux JDR pour enfant (public « enfant » ou « tous »)");
+      for (const c of COLLECTIONS_CONTEUR) if (!ids.includes(c)) err(`application « conteur » : la collection « ${c} » est obligatoire`);
+      for (const m of ["recap", "jouer"]) if (!estObjet(mods[m]) || mods[m].actif !== true) err(`application « conteur » : le module « ${m} » doit être actif`);
+      if (prof.heros !== undefined && (!estObjet(prof.heros) || (prof.heros.dossier_journal !== undefined && typeof prof.heros.dossier_journal !== "string"))) err("« heros » doit être un objet (dossier_journal : texte)");
+      const cat = estObjet(mods.objets) ? mods.objets.catalogue : undefined;
+      if (cat !== undefined) {
+        if (!Array.isArray(cat)) err("module objets : « catalogue » doit être une liste");
+        else cat.forEach((o, i) => {
+          if (!estObjet(o) || typeof o.id !== "string" || !RE_ID.test(o.id)) return err(`module objets : objet n° ${i + 1} : « id » obligatoire (minuscules, chiffres et _)`);
+          if (typeof o.nom !== "string" || !o.nom.trim()) err(`module objets : « ${o.id} » : « nom » obligatoire`);
+          if (typeof o.couleur !== "string" || !RE_COULEUR.test(o.couleur)) err(`module objets : « ${o.id} » : « couleur » doit être #rrggbb`);
+          if (o.motif !== undefined) { try { new RegExp(o.motif, "i"); } catch { err(`module objets : « ${o.id} » : « motif » n'est pas une expression régulière valide`); } }
+        });
+      }
+      const vo = estObjet(mods.voies) ? mods.voies : null;
+      if (vo && vo.max_par_tache !== undefined && !(Number.isInteger(vo.max_par_tache) && vo.max_par_tache >= 1 && vo.max_par_tache <= 6)) err("module voies : « max_par_tache » doit être un entier de 1 à 6");
+      const co = estObjet(mods.coeurs) ? mods.coeurs : null;
+      if (co && co.depart !== undefined && !(Number.isInteger(co.depart) && co.depart >= 1 && co.depart <= 20)) err("module coeurs : « depart » doit être un entier de 1 à 20");
+    }
   }
   // règle non définie : le moteur ne la devine jamais
   if (mods.d100 && mods.d100.actif && mods.d100.reussite === "A_PRECISER") {

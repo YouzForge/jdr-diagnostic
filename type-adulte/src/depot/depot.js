@@ -62,6 +62,9 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
     return { noeud: racines.joueur, rel: chemin };   // chemin relatif au dossier du joueur
   }
 
+  /** Dossier des photos du profil (module « photos » actif), sinon null. */
+  const dossierPhotos = () => { const m = profil.modules && profil.modules.photos; return m && m.actif !== false ? String(m.dossier || "08_Photos") : null; };
+
   const hors = e => !e.status || e.status >= 500;
   const sceller = (k, v) => { if (cache) cache.ecrire(k, v); };
 
@@ -73,13 +76,18 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
    *  - joueur : son propre dossier seulement ; coffre, table et dossiers des autres sont refusés ;
    *  - JDR « unique » : tout le dossier du JDR, pour le MJ comme pour les joueurs.
    */
-  async function resoudreEcriture(chemin) {
+  async function resoudreEcriture(chemin, { photo = false } = {}) {
     if (ecriture !== true) throw new AccesRefuse("L'écriture est désactivée pour ce JDR", "ecriture_desactivee");
     chemin = cheminSur(chemin);
     const segs = chemin.split("/").filter(Boolean);
     if (!segs.length) throw new AccesRefuse("Chemin vide", "vide");
     if (segs.some(sg => /^00_/.test(sg) || sg === NOM_MARQUEUR)) throw new AccesRefuse("Nom réservé", "nom_reserve");
-    if (!/\.md$/i.test(segs[segs.length - 1]) || segs[segs.length - 1].length < 4) throw new AccesRefuse("Seuls les fichiers Markdown (.md) s'écrivent", "type_refuse");
+    if (photo) {   // une photo : uniquement dans le dossier des photos du profil, JDR « unique », image courante, un niveau sous le dossier
+      const dossier = dossierPhotos();
+      if (!dossier) throw new AccesRefuse("Les photos ne sont pas activées pour ce JDR", "photos_desactivees");
+      if (separe) throw new AccesRefuse("Les photos ne s'écrivent que dans un JDR à dossier unique", "photos_mode_separe");
+      if (segs.length !== 2 || segs[0] !== dossier || !/^[A-Za-z0-9_.-]+\.(jpe?g|png|webp)$/i.test(segs[1])) throw new AccesRefuse("Une photo se range dans « " + dossier + " », en .jpg, .png ou .webp", "type_refuse");
+    } else if (!/\.md$/i.test(segs[segs.length - 1]) || segs[segs.length - 1].length < 4) throw new AccesRefuse("Seuls les fichiers Markdown (.md) s'écrivent", "type_refuse");
     if (!separe) {   // JDR « unique » : un seul dossier lu et écrit par tout le monde, rien à protéger entre MJ et joueurs
       const noeud = role === "mj" ? racines.jdr : racines.unique;
       if (!noeud) throw new AccesRefuse("Dossier du JDR non configuré", "racine_absente");
@@ -107,6 +115,7 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
   }
 
   const TAILLE_MAX_OCTETS = 1000000;
+  const TAILLE_MAX_PHOTO = 8000000;
   function verifierTexte(texte) {
     if (typeof texte !== "string") throw new TypeError("Texte attendu");
     if (new TextEncoder().encode(texte).length > TAILLE_MAX_OCTETS) throw new AccesRefuse("Fichier trop volumineux", "trop_gros");
@@ -204,6 +213,33 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
       const fait = await proteger(r, () => client.supprimer(r.noeud, r.rel, { etag }));
       if (!fait && !(await client.existe(r.noeud))) throw new AccesRetire();
       if (cache) { cache.retirer("tx:" + chemin); cache.retirerPrefixe("ls:"); }
+    },
+
+    /** Image d'un fichier (lecture). → { blob } ou `null` ; jamais servie hors ligne (les photos ne sont pas gardées dans la copie locale). */
+    async lireImage(chemin) {
+      const { noeud, rel } = resoudre(chemin);
+      if (!/\.(jpe?g|png|webp)$/i.test(rel)) throw new AccesRefuse("Seules les images .jpg, .png et .webp se lisent ainsi", "type_refuse");
+      const blob = await client.lireOctets(noeud, rel);
+      if (blob === null && !(await client.existe(noeud))) throw new AccesRetire();
+      return blob === null ? null : { blob };
+    },
+
+    /** Range une photo NOUVELLE (jamais d'écrasement), taille limitée. → { etag } */
+    async ajouterPhoto(chemin, blob) {
+      const r = await resoudreEcriture(chemin, { photo: true });
+      if (!blob || typeof blob.size !== "number" || blob.size < 1) throw new TypeError("Image vide");
+      if (blob.size > TAILLE_MAX_PHOTO) throw new AccesRefuse("Photo trop volumineuse", "trop_gros");
+      if (!/^image\/(jpeg|png|webp)$/.test(blob.type || "")) throw new AccesRefuse("Type d'image non accepté", "type_refuse");
+      return proteger(r, () => client.creerOctets(r.noeud, r.rel, blob, blob.type));
+    },
+
+    /** Supprime une photo (corbeille OneDrive, récupérable 93 jours) ; mêmes garde-fous que le rangement d'une photo. L'appelant demande confirmation AVANT. */
+    async supprimerPhoto(chemin) {
+      const r = await resoudreEcriture(chemin, { photo: true });
+      const info = await client.infos(r.noeud, r.rel);
+      if (!info) return false;                         // déjà supprimée
+      if (info.dir || !info.etag) throw new AccesRefuse("Ce n'est pas une photo supprimable", "type_refuse");
+      return proteger(r, async () => { await client.supprimer(r.noeud, r.rel, { etag: info.etag }); return true; });
     },
 
     /** Dossier d'une collection du profil, tel que le dépôt le résout. */

@@ -11,6 +11,6 @@ window.JDR_APP = {
       "823578ce4478ba71167f938de64dc7004b9fe68cc572c5df835032185508ec8b"
     ]
   },
-  "ecriture": true,
-  "racineMJ": "Documents/JDR/0 - BASE APPLICATION POUR JDR/08_Tests_reels/JDR - TYPE Adulte"
+  "ecriture": false,
+  "racineMJ": "Documents/JDR/0 - BASE APPLICATION POUR JDR/08_Tests_reels/JDR - TYPE Adulte joueur"
 };

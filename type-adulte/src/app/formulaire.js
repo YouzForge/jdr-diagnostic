@@ -31,12 +31,12 @@ const enTexte = v => (v === true ? "true" : v === false ? "false" : v == null ? 
  * Ce que le formulaire affiche. `fiche` = { meta, body } d'une fiche existante (parseDoc), ou null pour une création.
  * @returns {{champs:object[], sections:object[], creation:boolean}}
  */
-export function modeleFormulaire(profil, role, col, fiche = null) {
+export function modeleFormulaire(profil, role, col, fiche = null, { images = false } = {}) {
   const m = masque(profil), vis = sec(profil).visibilites || { accessible: "accessible", conditionnel: "conditionnel", secret: "secret" };
   const champs = [];
   for (const def of col.champs || []) {
     const { genre, valeur } = analyserType(def.t);
-    if (genre === "image" || CHAMPS_TECHNIQUES.includes(def.k)) continue;
+    if ((genre === "image" && !images) || CHAMPS_TECHNIQUES.includes(def.k)) continue;
     if (role !== "mj" && ((m.champs || []).includes(def.k) || genre === "visibilite")) continue;   // un joueur ne voit pas les champs masqués et ne règle pas la visibilité
     const brut = fiche ? fiche.meta[norm(def.k)] : undefined;
     let options = genre === "enum" ? valeur.split("|") : genre === "visibilite" ? Object.keys(vis) : null;
@@ -44,8 +44,9 @@ export function modeleFormulaire(profil, role, col, fiche = null) {
     if (!fiche && genre === "visibilite") initial = col.zone === "table" ? "accessible" : "secret";
     if (options && initial !== "" && !options.includes(initial)) options = [...options, initial];   // valeur étrangère gardée telle quelle, jamais effacée en silence
     champs.push({
-      cle: def.k, libelle: def.l || def.k, genre: ["text", "int", "bool", "area", "enum", "visibilite"].includes(genre) ? genre : "text",
+      cle: def.k, libelle: def.l || def.k, genre: ["text", "int", "bool", "area", "enum", "visibilite", "image"].includes(genre) ? genre : "text",
       options, libellesOptions: genre === "visibilite" ? vis : null, requis: !!def.req, initial,
+      ref: genre === "ref" ? valeur : null,
       aide: genre === "ref" ? "Nom de la fiche liée" : genre === "list" ? "Plusieurs valeurs : sépare-les par des virgules" : null
     });
   }
@@ -72,6 +73,7 @@ export function preparerEcriture(modele, saisies, col) {
     }
     texte = enTexte(brut).replace(/\s*\n\s*/g, " ").trim();      // une valeur d'en-tête tient sur une ligne
     if (c.requis && texte === "") { erreurs[c.cle] = "Obligatoire"; continue; }
+    if (c.genre === "image" && texte !== "" && !/^[A-Za-z0-9_.-]+\.(jpe?g|png|webp)$/i.test(texte)) { erreurs[c.cle] = "Nom de photo non valide"; continue; }
     if (c.genre === "int" && texte !== "") {
       if (!/^-?\d+$/.test(texte)) { erreurs[c.cle] = "Un nombre entier est attendu"; continue; }
       valeur = Number(texte); texte = String(valeur);
@@ -117,12 +119,12 @@ export function messageEcriture(e) {
 const chemin = (profil, session, col, pseudo, fichier) => `${cheminCollection(profil, session.role, col, pseudo)}/${fichier}`;
 
 /** Ouvre une fiche pour la modifier : texte actuel + version. → { modele, texte, etag } ou null si la fiche n'existe plus. */
-export async function ouvrirPourModifier({ session, profil, col, pseudo, fichier }) {
+export async function ouvrirPourModifier({ session, profil, col, pseudo, fichier, images = false }) {
   const f = await session.depot.lireFiche(chemin(profil, session, col, pseudo, fichier));
   if (!f) return null;
   const d = parseDoc(f.texte);
   if (!d.structured) throw new EcritureInvalide("Ancien format", "format_non_editable");
-  return { modele: modeleFormulaire(profil, session.role, col, d), texte: f.texte, etag: f.etag };
+  return { modele: modeleFormulaire(profil, session.role, col, d, { images }), texte: f.texte, etag: f.etag };
 }
 
 /** Enregistre une modification. → { fichier } ; lève une erreur traduisible par `messageEcriture`. Rien à écrire = rien d'envoyé. */

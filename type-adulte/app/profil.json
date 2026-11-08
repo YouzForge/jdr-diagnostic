@@ -4,6 +4,7 @@
   "nom": "JDR type — adulte (enquête à secrets)",
   "dossier": "JDR - TYPE Adulte",
   "public": "adulte",
+  "application": "joueur",
   "langue": "fr",
   "ton": "sobre, précis",
   "vocabulaire": {
@@ -59,12 +60,37 @@
       {
         "id": "inventaire",
         "dossier": "Inventaire",
-        "label": "Inventaire"
+        "label": "Sac"
+      },
+      {
+        "id": "quetes",
+        "dossier": "Quetes",
+        "label": "Quêtes"
       },
       {
         "id": "journal",
         "dossier": "Journal",
         "label": "Journal"
+      },
+      {
+        "id": "rencontres",
+        "dossier": "Rencontres",
+        "label": "Rencontres"
+      },
+      {
+        "id": "savoirs",
+        "dossier": "Savoirs",
+        "label": "Savoirs"
+      },
+      {
+        "id": "notes",
+        "dossier": "Notes",
+        "label": "Notes"
+      },
+      {
+        "id": "images",
+        "dossier": "Images",
+        "label": "Images"
       }
     ],
     "miroir_mj": "MJ/03_Joueurs/{pseudo}"
@@ -252,7 +278,52 @@
   "modules": {
     "d100": {
       "actif": true,
-      "reussite": "A_PRECISER"
+      "reussite": {
+        "comparaison": "inferieur_ou_egal",
+        "critique_reussite_max": 5,
+        "critique_echec_min": 95
+      },
+      "multiplicateur_total": 5,
+      "caracteristiques": [
+        {
+          "id": "for",
+          "nom": "Force"
+        },
+        {
+          "id": "dex",
+          "nom": "Dextérité"
+        },
+        {
+          "id": "end",
+          "nom": "Endurance"
+        },
+        {
+          "id": "int",
+          "nom": "Intelligence"
+        },
+        {
+          "id": "cha",
+          "nom": "Charisme"
+        }
+      ],
+      "classes": [
+        {
+          "id": "classique",
+          "nom": "Classique",
+          "bloc": "Combat"
+        },
+        {
+          "id": "mage",
+          "nom": "Mage",
+          "bloc": "Magie"
+        }
+      ],
+      "creation": {
+        "budget_caracteristiques": 60,
+        "min": 8,
+        "max": 16,
+        "plafond_competence_pct": 75
+      }
     },
     "jauges": {
       "actif": true
@@ -289,7 +360,8 @@
       "actif": false
     },
     "carte": {
-      "actif": false
+      "actif": true,
+      "dossier": "Table/Cartes"
     },
     "importation": {
       "actif": false
