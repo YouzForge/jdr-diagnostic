@@ -19,6 +19,19 @@ export class AccesRetire extends AccesRefuse {
   constructor(message = "Accès retiré ou dossier introuvable") { super(message, "acces_retire"); this.name = "AccesRetire"; this.status = 404; }
 }
 
+/**
+ * Nom d'un dossier du sac du joueur : 1 à 60 caractères, sans caractère interdit par OneDrive, sans espace ni point en bout,
+ * jamais un nom réservé (« 00_… », marqueur) ni « Non classé » (c'est le libellé des objets sans dossier).
+ */
+export function verifierNomDossier(nom) {
+  const n = String(nom ?? "");
+  if (!n || n.length > 60) throw new AccesRefuse("Le nom d'un dossier fait de 1 à 60 caractères", "nom_invalide");
+  if (n !== n.trim() || /[\\/:?*"<>|\u0000-\u001f]/.test(n) || /\.$/.test(n) || n === "." || n === "..") throw new AccesRefuse("Nom de dossier refusé", "nom_invalide");
+  if (/^00_/.test(n) || n === NOM_MARQUEUR) throw new AccesRefuse("Nom réservé", "nom_reserve");
+  if (n.normalize("NFC").toLowerCase() === "non classé") throw new AccesRefuse("« Non classé » est réservé aux objets sans dossier", "nom_reserve");
+  return n;
+}
+
 const premier = p => p.split("/").filter(Boolean)[0] || "";
 const sansPremier = p => p.split("/").filter(Boolean).slice(1).join("/");
 const jointure = (...p) => p.filter(Boolean).join("/");
@@ -76,8 +89,9 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
    *  - joueur : son propre dossier seulement ; coffre, table et dossiers des autres sont refusés ;
    *  - JDR « unique » : tout le dossier du JDR, pour le MJ comme pour les joueurs.
    */
+  const exigerEcriture = () => { if (ecriture !== true) throw new AccesRefuse("L'écriture est désactivée pour ce JDR", "ecriture_desactivee"); };
   async function resoudreEcriture(chemin, { photo = false } = {}) {
-    if (ecriture !== true) throw new AccesRefuse("L'écriture est désactivée pour ce JDR", "ecriture_desactivee");
+    exigerEcriture();
     chemin = cheminSur(chemin);
     const segs = chemin.split("/").filter(Boolean);
     if (!segs.length) throw new AccesRefuse("Chemin vide", "vide");
@@ -112,6 +126,23 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
       return { noeud: racines.jdr, rel: chemin, chemin };
     }
     throw new AccesRefuse("Hors du périmètre d'écriture", "hors_perimetre");
+  }
+
+  /** Dossier « Inventaire » du joueur d'après le profil (`joueur_modele.dossiers`), sinon null. */
+  const dossierSac = () => { const d = ((profil.joueur_modele || {}).dossiers || []).find(x => x && x.id === "inventaire"); return d && d.dossier ? cheminSur(String(d.dossier)) : null; };
+  /** Périmètre des opérations sur les dossiers du sac (voir plus bas). Tous les refus se font AVANT d'interroger OneDrive. */
+  function resoudreDossierSac(chemin) {
+    exigerEcriture();
+    if (role !== "joueur") throw new AccesRefuse("Les dossiers du sac ne s'écrivent que depuis le compte du joueur", "dossier_joueur_seulement");
+    const base = dossierSac();
+    if (!base) throw new AccesRefuse("Ce JDR n'a pas de sac", "sac_absent");
+    chemin = cheminSur(chemin);
+    const segs = chemin.split("/").filter(Boolean), segsBase = base.split("/");
+    if (segs.length !== segsBase.length + 1 || segsBase.some((x, i) => segs[i] !== x)) throw new AccesRefuse("Hors du sac du joueur", "hors_perimetre");
+    verifierNomDossier(segs[segs.length - 1]);
+    const noeud = separe ? racines.joueur : racines.unique;
+    if (!noeud) throw new AccesRefuse("Dossier du joueur non configuré", "racine_absente");
+    return { noeud, rel: chemin, chemin };
   }
 
   const TAILLE_MAX_OCTETS = 1000000;
@@ -213,6 +244,35 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
       const fait = await proteger(r, () => client.supprimer(r.noeud, r.rel, { etag }));
       if (!fait && !(await client.existe(r.noeud))) throw new AccesRetire();
       if (cache) { cache.retirer("tx:" + chemin); cache.retirerPrefixe("ls:"); }
+    },
+
+    /**
+     * Dossiers du sac (créer, renommer, supprimer s'il est vide) : uniquement un sous-dossier direct du dossier « Inventaire » du joueur,
+     * depuis le compte du joueur (jamais depuis le MJ, qui voit sans écrire). Mêmes refus que les fichiers : interrupteur, nom réservé, hors périmètre.
+     */
+    async creerDossier(chemin) {
+      const r = resoudreDossierSac(chemin);
+      const res = await proteger(r, () => client.creerDossier(r.noeud, r.rel));
+      if (cache) cache.retirerPrefixe("ls:");
+      return res;
+    },
+    async renommerDossier(chemin, nouveauNom) {
+      const r = resoudreDossierSac(chemin);
+      verifierNomDossier(nouveauNom);
+      const res = await proteger(r, () => client.renommer(r.noeud, r.rel, nouveauNom));
+      if (cache) { cache.retirerPrefixe("ls:"); cache.retirerPrefixe("tx:" + r.rel + "/"); }
+      return res;
+    },
+    /** Supprime un dossier du sac SEULEMENT s'il est vide (corbeille OneDrive). L'appelant demande confirmation AVANT. */
+    async supprimerDossierVide(chemin) {
+      const r = resoudreDossierSac(chemin);
+      const contenu = await client.lister(r.noeud, r.rel);
+      if (contenu === null) { if (!(await client.existe(r.noeud))) throw new AccesRetire(); return false; }   // déjà supprimé
+      if (contenu.length) throw new AccesRefuse("Ce dossier n'est pas vide", "dossier_non_vide");
+      const info = await client.infos(r.noeud, r.rel);
+      const fait = await proteger(r, () => client.supprimer(r.noeud, r.rel, info && info.etag ? { etag: info.etag } : {}));
+      if (cache) cache.retirerPrefixe("ls:");
+      return fait;
     },
 
     /** Image d'un fichier (lecture). → { blob } ou `null` ; jamais servie hors ligne (les photos ne sont pas gardées dans la copie locale). */

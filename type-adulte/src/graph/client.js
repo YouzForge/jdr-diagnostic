@@ -258,6 +258,45 @@ export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, 
       }
     },
 
+    /** Crée un dossier NOUVEAU (jamais d'écrasement). Le dossier parent doit exister. Refuse s'il existe déjà (FicheExiste). → { id } */
+    async creerDossier(noeud, rel) {
+      rel = cheminSur(rel);
+      if (!rel) throw new CheminInvalide(rel);
+      const segs = rel.split("/"); const nom = segs.pop();
+      if (await api.infos(noeud, rel)) throw new FicheExiste(rel);
+      try {
+        const r = await requete(`${urlDe(noeud, segs.join("/"))}/children`, { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: nom, folder: {}, "@microsoft.graph.conflictBehavior": "fail" }) });
+        let id = null; try { const j = await r.json(); id = typeof j.id === "string" ? j.id : null; } catch { /* corps absent */ }
+        return { id };
+      } catch (e) {
+        if (e.status === 409 || e.status === 412) throw new FicheExiste(rel);
+        if (e.status === 423) throw new FicheVerrouillee(rel);
+        throw e;
+      }
+    },
+
+    /** Renomme un élément (même dossier parent). Refuse un nom déjà pris (FicheExiste) ; ConflitEcriture « disparue » s'il n'existe plus. */
+    async renommer(noeud, rel, nouveauNom) {
+      rel = cheminSur(rel);
+      if (!rel) throw new CheminInvalide(rel);
+      const nom = String(nouveauNom ?? "");
+      if (!nom || nom.includes("/") || cheminSur(nom) !== nom) throw new CheminInvalide(nom);
+      const segs = rel.split("/");
+      const cible = [...segs.slice(0, -1), nom].join("/");
+      if (!(await api.infos(noeud, rel))) throw new ConflitEcriture(rel, "disparue");
+      if (cible.toLowerCase() === rel.toLowerCase() || (await api.infos(noeud, cible))) throw new FicheExiste(cible);
+      try {
+        await requete(urlDe(noeud, rel), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: nom, "@microsoft.graph.conflictBehavior": "fail" }) });
+        return { rel: cible };
+      } catch (e) {
+        if (e.status === 409 || e.status === 412) throw new FicheExiste(cible);
+        if (e.status === 423) throw new FicheVerrouillee(rel);
+        if (e.status === 404) throw new ConflitEcriture(rel, "disparue");
+        throw e;
+      }
+    },
+
     /** Le dossier lui-même est-il accessible ? false = introuvable OU partage retiré (OneDrive répond 404 dans les deux cas). */
     async existe(noeud) {
       try { await requete(`${urlDe(noeud, "")}?$select=id`); return true; }

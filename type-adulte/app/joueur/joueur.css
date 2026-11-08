@@ -225,3 +225,34 @@ button.jr-ligne:active{background:var(--creux)}
 .jr-choix{min-height:100dvh;display:flex;flex-direction:column;gap:14px;padding:calc(28px + var(--s-h)) 20px calc(28px + var(--s-b));max-width:560px;margin:0 auto}
 @media (prefers-reduced-motion:reduce){.jr-panneau,.jr-de,.jr-feuille,.jr-fond-feuille,.jr-repere{transition:none;animation:none}.jr-spin{animation:none}}
 @media (min-width:700px){.jr-panneau{left:50%;right:auto;width:560px;transform-origin:bottom;margin-left:-280px}.jr-panneau.ferme{transform:translateY(calc(100% - var(--h-bande)))}}
+
+/* ---- écriture du joueur (tranche 2) ---- */
+.jr-tuiles.ecriture{grid-template-columns:repeat(3,1fr)}
+.jr-tuile.pv.reglable{grid-column:1/-1;min-height:112px}
+.jr-pv-ligne{display:flex;align-items:center;justify-content:center;gap:18px;width:100%}
+.jr-pv-ligne .jr-tuile-val{min-width:4.5ch;text-align:center;font-size:28px}
+.jr-pv-bouton{width:52px;height:52px;border-radius:50%;border:1px solid var(--trait);background:var(--creux);color:var(--texte);display:grid;place-items:center;touch-action:manipulation}
+.jr-pv-bouton:active:not(:disabled){background:var(--rouge);border-color:var(--rouge)}
+.jr-pv-bouton:disabled{opacity:.35}
+.jr-pv-etat{min-height:16px;font-size:12px;color:var(--voile)}
+.jr-pv-erreur{color:var(--orange)}
+.jr-actions{display:flex;flex-wrap:wrap;gap:10px}
+.jr-actions .jr-bouton{flex:1 1 140px}
+.jr-bouton.danger{border-color:var(--rouge);color:#f3b8ad}
+.jr-bouton.danger:disabled{border-color:var(--trait);color:var(--voile)}
+.jr-saisie{width:100%;min-height:48px;padding:10px 12px;border-radius:10px;border:1px solid var(--trait);background:var(--creux);color:var(--texte);font-size:16px;font-family:inherit}
+.jr-saisie:focus{outline:2px solid var(--orange);outline-offset:1px}
+.jr-saisie.zone{min-height:180px;resize:vertical;line-height:1.45}
+.jr-case{display:flex;align-items:center;gap:10px;min-height:44px;font-size:15px}
+.jr-case input{width:22px;height:22px;accent-color:var(--rouge)}
+.jr-aide{font-size:12.5px;color:var(--voile)}
+.jr-retour-action{display:flex;flex-direction:column;gap:8px}
+.jr-retour-action:empty{display:none}
+.jr-etiquettes{display:flex;flex-direction:column;gap:8px}
+.jr-ajout{display:flex;gap:8px}
+.jr-ajout .jr-saisie{min-height:44px}
+.jr-ajout .jr-bouton{min-height:44px;padding:0 14px;flex:none}
+.jr-puce.retirable{display:inline-flex;align-items:center;gap:4px;padding-right:2px}
+.jr-puce.retirable button{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--voile)}
+.jr-puce.retirable button:disabled{opacity:.5}
+.jr-ligne:disabled{opacity:.55}

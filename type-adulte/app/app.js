@@ -311,14 +311,14 @@ async function lancerConteur() {
   conteur = demarrerConteur({ profil, session, auth, ecriture: ecritureActive(), surErreur: e => { document.body.classList.remove("conteur"); gerer(e); } });
 }
 
-/** Application « joueur » (JDR pour adulte) : plein écran, lecture seule. Le MJ la voit « comme un joueur » ; un lien lui donne les listes du moteur. */
+/** Application « joueur » (JDR pour adulte) : plein écran ; le joueur y écrit si l'interrupteur `ecriture` est ouvert. Le MJ la voit « comme un joueur » ; un lien lui donne les listes du moteur. */
 let joueurApp = null;
 async function lancerJoueur() {
   window.removeEventListener("hashchange", route);
   if (joueurApp) { joueurApp.arreter(); joueurApp = null; }
   const { demarrerJoueur } = await import("./joueur/index.js");
   joueurApp = demarrerJoueur({
-    profil, session, auth, deconnecter: () => sortir(),
+    profil, session, auth, deconnecter: () => sortir(), ecriture: ecritureActive(),
     versMoteur: session.role === "mj" ? () => { joueurApp.arreter(); joueurApp = null; window.addEventListener("hashchange", route); location.hash = "#/"; ecranMenu(++nav); } : null,
     surErreur: e => { if (joueurApp) { joueurApp.arreter(); joueurApp = null; } gerer(e); }
   });

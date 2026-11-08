@@ -1,6 +1,7 @@
 // Application « joueur » (JDR pour adulte) : coque (portrait, onglets qu'on tire vers le haut, loupe, d100), routeur, choix du joueur à voir pour le MJ.
 // Lancée par app.js quand profil.application === "joueur" et que la session est prête (connexion, dossier relié).
-// Tranche 1 : lecture seule. Rien n'est écrit dans OneDrive par cette application.
+// Lecture partout ; l'écriture (tranche 2 : étiquettes, notes, sac, points de vie, bourse) n'existe que pour un JOUEUR et seulement si l'interrupteur `ecriture` du JDR est ouvert.
+// Le MJ qui « voit comme » un joueur ne peut rien modifier.
 import { creerDonneesJoueur } from "../../src/joueur/donnees.js";
 import { nature, issue } from "../../src/joueur/geste.js";
 import { reglesD100 } from "../../src/joueur/d100.js";
@@ -47,7 +48,7 @@ const ROUTES = [
   [/^\/recherche$/, ctx => ecranRecherche(ctx)]
 ];
 
-export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur, surErreur }) {
+export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur, surErreur, ecriture = false }) {
   document.body.classList.add("joueur");
   if (!document.getElementById("css-joueur")) document.head.append(h("link", { id: "css-joueur", rel: "stylesheet", href: "./joueur/joueur.css" }));
   let themeMeta = document.querySelector('meta[name="theme-color"]');
@@ -59,7 +60,7 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
 
   const estMJ = () => session.role === "mj";
   const ctx = {
-    profil, session, auth, regles: reglesD100(profil), historique: [], donnees: null,
+    profil, session, auth, regles: reglesD100(profil), historique: [], donnees: null, surErreur, brouillons: new Map(),
     etat: { sac: { ordre: "recents", groupe: "dossier", min: null, max: null }, carte: 0, recherche: { q: "", types: [], session: "", lieu: "", personnage: "", etiquette: "" } },
     panneau: "ferme"
   };
@@ -77,9 +78,11 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
   ctx.chargerEtiquettes = () => unique("etiquettes", () => ctx.donnees.etiquettes());
   ctx.chargerIndex = () => unique("index", () => ctx.donnees.index());
   ctx.vider = () => { caches.clear(); };
+  /** Après une écriture : relit tout et redessine l'écran courant. */
+  ctx.reafficher = async () => { const y = window.scrollY; caches.clear(); await afficher(); window.scrollTo(0, y); };
   function ouvrirDonnees(pseudo) {
     caches.clear(); viderImages();
-    ctx.donnees = creerDonneesJoueur({ profil, depot: ctx.session.depot, role: estMJ() ? "mj" : "joueur", pseudo });
+    ctx.donnees = creerDonneesJoueur({ profil, depot: ctx.session.depot, role: estMJ() ? "mj" : "joueur", pseudo, ecriture: ecriture === true });
   }
   if (!estMJ()) ouvrirDonnees(session.pseudo || "");
   else if (lireSession("voir")) ouvrirDonnees(lireSession("voir"));

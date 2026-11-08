@@ -70,7 +70,8 @@ const echapper = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** Texte d'une section « ## Titre » (sans le titre), « » si elle n'existe pas. */
 export function getSection(body, title) {
-  const re = new RegExp(`^## ${echapper(title)}\\s*\\n([\\s\\S]*?)(?=\\n## |(?![\\s\\S]))`, "m");
+  // « [ \t\r]*\n » et non « \s*\n » : une section VIDE suivie d'une autre ne doit pas avaler la suivante (« \s* » mangeait la ligne vide)
+  const re = new RegExp(`^## ${echapper(title)}[ \\t\\r]*\\n([\\s\\S]*?)(?=\\n## |^## |(?![\\s\\S]))`, "m");
   const m = String(body).match(re);
   return m ? m[1].trim() : "";
 }
@@ -78,7 +79,7 @@ export function getSection(body, title) {
 /** Remplace (ou ajoute à la fin) la section « ## Titre » ; texte vide = section retirée. */
 export function setSection(body, title, text) {
   body = String(body);
-  const re = new RegExp(`^## ${echapper(title)}\\s*\\n[\\s\\S]*?(?=\\n## |(?![\\s\\S]))`, "m");
+  const re = new RegExp(`^## ${echapper(title)}[ \\t\\r]*\\n[\\s\\S]*?(?=\\n## |^## |(?![\\s\\S]))`, "m");
   const bloc = text.trim() ? `## ${title}\n${text.trim()}\n` : "";
   if (re.test(body)) return body.replace(re, () => bloc).replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
   return bloc ? body.trimEnd() + "\n\n" + bloc : body;

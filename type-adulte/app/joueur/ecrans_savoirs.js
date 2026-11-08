@@ -1,7 +1,8 @@
 // Onglet « Savoirs » et ses six pastilles : Savoirs, Quêtes, Journal, Rencontres, Notes, Carte (la carte est dans ecrans_carte.js).
-// Lecture seule (tranche 1) : le MJ écrit les récits et les présentations ; les étiquettes, notes et classements du joueur viennent en tranche 2.
+// Le MJ écrit les récits et les présentations (lecture seule pour le joueur). Si le joueur peut écrire (tranche 2) : étiquettes, notes libres, notes de journal, « Ma note » des rencontres.
 import { h, icon, message, pastille, meta, puces, extrait, rendreMarkdown, boiteImage, surbrillance } from "./ui.js";
-import { ouvrirElement, etiquettesDe } from "./detail.js";
+import { ouvrirElement, etiquettesSeparees } from "./detail.js";
+import { peut, formulaireNote, modifierNote, blocEtiquettes } from "./edition.js";
 import { savoirsAppris } from "../../src/joueur/cartes.js";
 
 export const PASTILLES = [
@@ -52,12 +53,16 @@ export async function ecranQuetes(ctx, f) {
   const perso = fiche && fiche.quetePerso ? h("section", { class: "jr-carte perso", "aria-label": "Ma quête personnelle" }, h("div", { class: "jr-carte-tete" }, icon("scroll", 18), h("span", { class: "jr-kicker" }, "Ma quête personnelle")), h("p", { class: "jr-texte" }, fiche.quetePerso)) : null;
   return liste(ctx, { id: "quetes", charger: () => ctx.donnees.quetes(), vide: "Aucune autre quête pour l'instant.", ouvrirFichier: f, avant: perso });
 }
-export const ecranNotes = (ctx, f) => liste(ctx, { id: "notes", charger: () => ctx.donnees.notes(), vide: "Aucune note pour l'instant.", ouvrirFichier: f });
+export const ecranNotes = (ctx, f) => liste(ctx, { id: "notes", charger: () => ctx.donnees.notes(), vide: "Aucune note pour l'instant.", ouvrirFichier: f,
+  avant: peut(ctx) ? h("button", { class: "jr-bouton", type: "button", onclick: () => formulaireNote(ctx, { zone: "notes", surFini: () => ctx.reafficher() }) }, icon("plus", 18), "Nouvelle note") : null });
 
 /* ---------------- Journal ---------------- */
 export async function ecranJournal(ctx, sessionOuverte = null) {
   const r = await ctx.donnees.journal();
-  if (!r.sessions.length) return ecran("journal", perime(r), message("Le journal est vide : les récits de session et tes notes de journal apparaîtront ici.", "info"));
+  const derniere = r.sessions.length ? r.sessions[0].session : 1;
+  const nouvelle = (session = derniere) => formulaireNote(ctx, { zone: "journal", session, surFini: () => ctx.reafficher() });
+  const boutonNote = session => (peut(ctx) ? h("button", { class: "jr-bouton", type: "button", onclick: () => nouvelle(session) }, icon("plus", 18), "Ajouter une note") : null);
+  if (!r.sessions.length) return ecran("journal", perime(r), message("Le journal est vide : les récits de session et tes notes de journal apparaîtront ici.", "info"), boutonNote(1));
   const premiere = sessionOuverte != null ? sessionOuverte : r.sessions[0].session;
   const blocs = r.sessions.map(s => {
     const titre = s.session ? `Session ${s.session}` : "Hors session";
@@ -65,7 +70,8 @@ export async function ecranJournal(ctx, sessionOuverte = null) {
       h("summary", null, h("span", { class: "jr-session-n" }, titre), h("span", { class: "jr-session-col" }, s.titre ? h("span", { class: "jr-session-t" }, s.titre) : null, s.date ? h("span", { class: "jr-meta" }, s.date) : null), icon("chev_d", 18)),
       h("div", { class: "jr-session-corps" },
         s.recit ? h("div", { class: "jr-md" }, rendreMarkdown(s.recit.corps)) : h("p", { class: "jr-vide" }, "Pas de récit pour cette session."),
-        s.notes.length ? h("div", null, h("div", { class: "jr-kicker" }, "Mes notes"), h("ul", { class: "jr-cartes" }, s.notes.map(n => carte(ctx, n, { tags: n.etiquettes, ouvrir: e => ouvrirElement(ctx, e) })))) : null));
+        s.notes.length ? h("div", null, h("div", { class: "jr-kicker" }, "Mes notes"), h("ul", { class: "jr-cartes" }, s.notes.map(n => carte(ctx, n, { tags: n.etiquettes, ouvrir: e => ouvrirElement(ctx, e) })))) : null,
+        boutonNote(s.session)));
     if (s.session === premiere) d.open = true;
     return d;
   });
@@ -91,14 +97,18 @@ export async function ecranRencontre(ctx, fichier) {
   const [r, sv] = await Promise.all([ctx.donnees.rencontres(), ctx.donnees.savoirs().catch(e => { if (e && (e.status === 401 || e.auth)) throw e; return { items: [] }; })]);
   const e = r.items.find(x => x.fichier === fichier);
   if (!e) return ecran("rencontres", h("a", { class: "jr-retour", href: "#/rencontres" }, icon("back", 18), "Rencontres"), message("Cette rencontre n'existe plus dans ton dossier.", "info"));
-  const tags = await etiquettesDe(ctx, e);
+  const ecrire = peut(ctx);
+  const { fixes, posees } = await etiquettesSeparees(ctx, e);
+  const tags = [...new Set([...fixes, ...posees])];
   // Seuls les savoirs que le personnage possède (fichiers de son dossier) sont montrés : un savoir absent n'est ni nommé ni signalé, un titre non appris serait un indice sur le secret du MJ.
   const lies = savoirsAppris(e.savoirsLies, sv.items);
   const noeud = ecran("rencontres",
     h("a", { class: "jr-retour", href: "#/rencontres" }, icon("back", 18), "Rencontres"),
-    h("div", { class: "jr-rencontre-tete" }, boiteImage(ctx, e.portrait, "jr-portrait-rencontre", "user"), h("h2", { class: "jr-nom-grand" }, e.titre), meta(e), puces(tags)),
+    h("div", { class: "jr-rencontre-tete" }, boiteImage(ctx, e.portrait, "jr-portrait-rencontre", "user"), h("h2", { class: "jr-nom-grand" }, e.titre), meta(e), ecrire ? blocEtiquettes(ctx, e, { fixes, posees }) : puces(tags)),
     e.presentation ? h("section", { class: "jr-bloc" }, h("h3", null, "Présentation"), h("div", { class: "jr-md" }, rendreMarkdown(e.presentation))) : null,
-    e.note ? h("section", { class: "jr-bloc" }, h("h3", null, "Ma note"), h("div", { class: "jr-md" }, rendreMarkdown(e.note))) : null,
+    e.note || ecrire ? h("section", { class: "jr-bloc" }, h("h3", null, "Ma note"),
+      e.note ? h("div", { class: "jr-md" }, rendreMarkdown(e.note)) : h("p", { class: "jr-vide" }, "Rien pour l'instant."),
+      ecrire ? h("button", { class: "jr-bouton", type: "button", onclick: () => modifierNote(ctx, "rencontres", e.fichier, () => ctx.reafficher()) }, icon("pen", 18), e.note ? "Modifier ma note" : "Écrire ma note") : null) : null,
     !e.presentation && !e.note && e.corps ? h("div", { class: "jr-md" }, rendreMarkdown(e.corps)) : null,
     lies.length ? h("section", { class: "jr-bloc" }, h("h3", null, "Savoirs liés"), h("ul", { class: "jr-lignes" }, lies.map(sa => h("li", null,
       h("button", { class: "jr-ligne", onclick: () => ouvrirElement(ctx, sa) }, h("span", { class: "jr-ligne-nom" }, sa.titre), icon("next", 18)))))) : null);

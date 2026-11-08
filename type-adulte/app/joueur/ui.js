@@ -60,20 +60,25 @@ export function meta(e) {
 }
 
 /** Fenêtre qui monte du bas. Renvoie la fonction qui la ferme. `surFermeture` est appelée une fois à la fermeture. */
+const pileFeuilles = [];   // fenêtres ouvertes, la dernière au-dessus : Échap ne ferme que celle du dessus
 export function feuille(titre, corps, { surFermeture, large = false } = {}) {
   const fond = h("div", { class: "jr-fond-feuille" });
   let ferme = false;
-  const fermer = () => { if (ferme) return; ferme = true; document.removeEventListener("keydown", touche); fond.remove(); if (surFermeture) surFermeture(); };
-  const touche = e => { if (e.key === "Escape") fermer(); };
+  const fermer = () => { if (ferme) return; ferme = true; document.removeEventListener("keydown", touche); const i = pileFeuilles.indexOf(fermer); if (i >= 0) pileFeuilles.splice(i, 1); fond.remove(); if (surFermeture) surFermeture(); };
+  const touche = e => { if (e.key === "Escape" && pileFeuilles[pileFeuilles.length - 1] === fermer) fermer(); };
   const f = h("div", { class: "jr-feuille" + (large ? " large" : ""), role: "dialog", "aria-modal": "true", "aria-label": titre },
     h("div", { class: "jr-feuille-tete" }, h("h2", null, titre), h("button", { class: "jr-rond", "aria-label": "Fermer", onclick: fermer }, icon("x", 22))),
     h("div", { class: "jr-feuille-corps" }, corps));
   fond.addEventListener("click", e => { if (e.target === fond) fermer(); });
   document.addEventListener("keydown", touche);
+  pileFeuilles.push(fermer);
   fond.append(f);
   document.body.append(fond);
   return fermer;
 }
+
+/** Ferme toutes les fenêtres ouvertes (du dessus vers le dessous). */
+export function fermerFeuilles() { for (const f of [...pileFeuilles].reverse()) f(); }
 
 /** Bouton « pastille » (filtre, sous-navigation). */
 export const pastille = (texte, { actif = false, onclick, href, ic } = {}) =>
