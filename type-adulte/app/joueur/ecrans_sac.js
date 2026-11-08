@@ -19,14 +19,26 @@ function ligneObjet(ctx, o, sans = "") {
     o.quantite > 1 ? h("span", { class: "jr-quantite", "aria-label": `quantité ${o.quantite}` }, `×${o.quantite}`) : null));
 }
 
+/** Bourse : ce que le personnage possède en argent, tel que le joueur l'a écrit dans sa fiche (clé « bourse »). Aucune monnaie n'est supposée : le texte est montré tel quel. */
+function carteBourse(fiche) {
+  if (!fiche || !fiche.bourse) return null;
+  return h("section", { class: "jr-bourse", "aria-label": "Ma bourse" }, h("span", { class: "jr-bourse-ic" }, icon("purse", 26)),
+    h("span", { class: "jr-bourse-texte" }, h("span", { class: "jr-kicker" }, "Ma bourse"), h("span", { class: "jr-bourse-valeur" }, fiche.bourse)));
+}
+
 export async function ecranSacDossiers(ctx) {
-  const r = await ctx.donnees.sac();
+  const [r, f] = await Promise.all([ctx.donnees.sac(), ctx.donnees.fiche().catch(() => null)]);
+  const bourse = carteBourse(f && f.fiche);
   const t = tuilesDossiers(r.objets, r.dossiers);
-  if (!r.objets.length && !r.dossiers.length) return ecran("dossiers", perime(r), message("Ton sac est vide. Ce que tu ramasses apparaîtra ici.", "info"));
-  const tuile = (nom, n, href, ic = "folder") => h("li", null, h("a", { class: "jr-dossier", href }, icon(ic, 30), h("span", { class: "jr-dossier-nom" }, nom), h("span", { class: "jr-dossier-n" }, n === 1 ? "1 objet" : `${n} objets`)));
-  const tuiles = [tuile("Tout", r.objets.length, "#/sac/tout", "bag"), ...t.dossiers.map(d => tuile(d.nom, d.n, `#/sac/d/${encodeURIComponent(d.nom)}`))];
-  if (t.nonClasse) tuiles.push(tuile(NON_CLASSE, t.nonClasse, `#/sac/d/${encodeURIComponent(NON_CLASSE)}`, "tag"));
-  return ecran("dossiers", perime(r), h("ul", { class: "jr-dossiers" }, tuiles));
+  if (!r.objets.length && !r.dossiers.length) return ecran("dossiers", perime(r), bourse, message("Ton sac est vide. Ce que tu ramasses apparaîtra ici.", "info"));
+  // Même présentation que la liste « Tout » : une ligne par dossier, pleine largeur.
+  const ligne = (nom, n, href, ic = "folder") => h("li", null, h("a", { class: "jr-objet jr-dossier", href },
+    h("span", { class: "jr-vignette petite" }, icon(ic, 22)),
+    h("span", { class: "jr-objet-texte" }, h("span", { class: "jr-objet-nom" }, nom), h("span", { class: "jr-objet-session" }, n === 1 ? "1 objet" : `${n} objets`)),
+    icon("next", 18)));
+  const lignes = [ligne("Tout", r.objets.length, "#/sac/tout", "bag"), ...t.dossiers.map(d => ligne(d.nom, d.n, `#/sac/d/${encodeURIComponent(d.nom)}`))];
+  if (t.nonClasse) lignes.push(ligne(NON_CLASSE, t.nonClasse, `#/sac/d/${encodeURIComponent(NON_CLASSE)}`, "tag"));
+  return ecran("dossiers", perime(r), bourse, h("ul", { class: "jr-objets jr-dossiers" }, lignes));
 }
 
 /** Vue « Tout » : tri, regroupement et ancienneté (réglages gardés pendant la session). */

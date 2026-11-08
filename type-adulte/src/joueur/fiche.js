@@ -21,7 +21,7 @@ export function classesDuProfil(profil) {
 
 const valeurCarac = (meta, c) => { for (const k of [c.id, c.nom]) { const v = nombre(meta[norm(k)]); if (v != null) return v; } return null; };
 
-/** Lit une fiche. → { nom, classe:{id,nom,bloc,budget}|null, identite:[...], armure, chance, idee, pv, pvMax, caracteristiques, bloc, competences, speciales, quetePerso, portrait, avertissements } */
+/** Lit une fiche. → { nom, classe:{id,nom,bloc,budget}|null, identite:[...], armure, chance, idee, pv, pvMax, caracteristiques, bloc, competences, speciales, quetePerso, bourse, portrait, avertissements } */
 export function lireFiche(contenu, profil) {
   const doc = parseDoc(contenu);
   const m = doc.meta;
@@ -57,7 +57,7 @@ export function lireFiche(contenu, profil) {
     identite: ["profession", "age", "taille", "poids"].map(k => texte(m[k])).filter(Boolean),
     armure: nombre(m.armure), chance: nombre(m.chance), idee: nombre(m.idee), pv: nombre(m.pv), pvMax: nombre(m.pv_max),
     caracteristiques, bloc, competences: reste, speciales,
-    quetePerso: texte(m.quete_perso), portrait: texte(m.portrait),
+    quetePerso: texte(m.quete_perso), bourse: texte(m.bourse), portrait: texte(m.portrait),
     creation: { budget: regles.budgetCaracteristiques, min: regles.min, max: regles.max, plafond: regles.plafond },
     regles, avertissements
   };

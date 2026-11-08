@@ -42,7 +42,7 @@ body.joueur > header, body.joueur > main, body.joueur > footer{display:none}
 .jr-panneau.ouvert{transform:translateY(0)}
 .jr-panneau.ferme{transform:translateY(calc(100% - var(--h-bande)))}
 .jr-panneau.tire{transition:none}
-.jr-onglets{flex:none;display:flex;gap:6px;padding:10px 10px calc(8px + var(--s-b));touch-action:none;user-select:none;-webkit-user-select:none;background:var(--panneau);border-radius:22px 22px 0 0;order:0}
+.jr-onglets{-webkit-touch-callout:none;flex:none;display:flex;gap:6px;padding:10px 10px calc(8px + var(--s-b));touch-action:none;user-select:none;-webkit-user-select:none;background:var(--panneau);border-radius:22px 22px 0 0;order:0}
 .jr-panneau.ouvert .jr-onglets{padding-bottom:8px;border-bottom:1px solid var(--trait)}
 .jr-onglet{flex:1 1 0;min-width:0;min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;border-radius:12px;background:var(--rouge);color:var(--texte);font-size:11.5px;font-weight:600;letter-spacing:0;white-space:nowrap}
 .jr-onglet span{overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -155,10 +155,12 @@ button.jr-ligne:active{background:var(--creux)}
 .jr-image-detail img{width:100%;max-height:44dvh;object-fit:contain;display:block}
 
 /* ---- sac ---- */
-.jr-dossiers{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.jr-dossier{display:flex;flex-direction:column;gap:4px;padding:14px;min-height:104px;border-radius:14px;border:1px solid var(--trait);background:var(--sol);color:var(--orange)}
-.jr-dossier-nom{font-family:"Cinzel",serif;font-weight:600;font-size:16px;color:var(--texte);overflow-wrap:anywhere}
-.jr-dossier-n{font-size:13px;color:var(--voile)}
+.jr-dossier .jr-vignette{color:var(--orange)}
+.jr-dossier > svg:last-child{flex:none;color:var(--voile)}
+.jr-bourse{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:14px;border:1px solid var(--trait);background:var(--sol)}
+.jr-bourse-ic{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--creux);color:var(--orange)}
+.jr-bourse-texte{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.jr-bourse-valeur{font-size:17px;font-weight:600;overflow-wrap:anywhere}
 .jr-objets{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .jr-objet{width:100%;min-height:58px;display:flex;align-items:center;gap:12px;padding:6px 12px 6px 8px;border-radius:12px;border:1px solid var(--trait);background:var(--sol);text-align:left}
 .jr-objet:active{background:var(--creux)}

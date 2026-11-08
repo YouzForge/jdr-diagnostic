@@ -2,7 +2,7 @@
 // Lecture seule (tranche 1) : le MJ écrit les récits et les présentations ; les étiquettes, notes et classements du joueur viennent en tranche 2.
 import { h, icon, message, pastille, meta, puces, extrait, rendreMarkdown, boiteImage, surbrillance } from "./ui.js";
 import { ouvrirElement, etiquettesDe } from "./detail.js";
-import { designe } from "../../src/joueur/cartes.js";
+import { savoirsAppris } from "../../src/joueur/cartes.js";
 
 export const PASTILLES = [
   ["savoirs", "Savoirs", "#/savoirs"], ["quetes", "Quêtes", "#/quetes"], ["journal", "Journal", "#/journal"],
@@ -92,15 +92,15 @@ export async function ecranRencontre(ctx, fichier) {
   const e = r.items.find(x => x.fichier === fichier);
   if (!e) return ecran("rencontres", h("a", { class: "jr-retour", href: "#/rencontres" }, icon("back", 18), "Rencontres"), message("Cette rencontre n'existe plus dans ton dossier.", "info"));
   const tags = await etiquettesDe(ctx, e);
-  const lies = e.savoirsLies.map(nom => ({ nom, savoir: sv.items.find(s => designe(s, nom)) }));
+  // Seuls les savoirs que le personnage possède (fichiers de son dossier) sont montrés : un savoir absent n'est ni nommé ni signalé, un titre non appris serait un indice sur le secret du MJ.
+  const lies = savoirsAppris(e.savoirsLies, sv.items);
   const noeud = ecran("rencontres",
     h("a", { class: "jr-retour", href: "#/rencontres" }, icon("back", 18), "Rencontres"),
     h("div", { class: "jr-rencontre-tete" }, boiteImage(ctx, e.portrait, "jr-portrait-rencontre", "user"), h("h2", { class: "jr-nom-grand" }, e.titre), meta(e), puces(tags)),
     e.presentation ? h("section", { class: "jr-bloc" }, h("h3", null, "Présentation"), h("div", { class: "jr-md" }, rendreMarkdown(e.presentation))) : null,
     e.note ? h("section", { class: "jr-bloc" }, h("h3", null, "Ma note"), h("div", { class: "jr-md" }, rendreMarkdown(e.note))) : null,
     !e.presentation && !e.note && e.corps ? h("div", { class: "jr-md" }, rendreMarkdown(e.corps)) : null,
-    lies.length ? h("section", { class: "jr-bloc" }, h("h3", null, "Savoirs liés"), h("ul", { class: "jr-lignes" }, lies.map(l => h("li", null,
-      l.savoir ? h("button", { class: "jr-ligne", onclick: () => ouvrirElement(ctx, l.savoir) }, h("span", { class: "jr-ligne-nom" }, l.savoir.titre), icon("next", 18))
-               : h("div", { class: "jr-ligne inerte" }, h("span", { class: "jr-ligne-nom" }, l.nom), h("span", { class: "jr-ligne-sec" }, "pas encore appris")))))) : null);
+    lies.length ? h("section", { class: "jr-bloc" }, h("h3", null, "Savoirs liés"), h("ul", { class: "jr-lignes" }, lies.map(sa => h("li", null,
+      h("button", { class: "jr-ligne", onclick: () => ouvrirElement(ctx, sa) }, h("span", { class: "jr-ligne-nom" }, sa.titre), icon("next", 18)))))) : null);
   return noeud;
 }

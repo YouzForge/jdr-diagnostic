@@ -2,6 +2,7 @@
 // Lancée par app.js quand profil.application === "joueur" et que la session est prête (connexion, dossier relié).
 // Tranche 1 : lecture seule. Rien n'est écrit dans OneDrive par cette application.
 import { creerDonneesJoueur } from "../../src/joueur/donnees.js";
+import { nature, issue } from "../../src/joueur/geste.js";
 import { reglesD100 } from "../../src/joueur/d100.js";
 import { listerJoueurs } from "../../src/app/bibliotheque.js";
 import { h, icon, attente, message, urlImage, viderImages, feuille } from "./ui.js";
@@ -100,30 +101,34 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
 
   /** Tirer la bande d'onglets vers le haut ouvre le panneau, la tirer vers le bas le ferme ; un simple appui suit le lien. */
   function gestes(panneau, bande, ouvert) {
-    let depart = null, tire = false, cible = null;
+    let depart = null, tire = false, bouge = false;
     const haut = () => panneau.getBoundingClientRect().height;
-    bande.addEventListener("pointerdown", e => { depart = e.clientY; tire = false; cible = e.target.closest("[data-href]"); });
+    const annule = () => { depart = null; tire = false; panneau.classList.remove("tire"); panneau.style.transform = ""; };
+    // Un doigt qui a bougé n'est plus un appui : le clic qui suivrait est ignoré (délai : sur téléphone il arrive après le relâchement).
+    const garde = () => { bande.dataset.glisse = "1"; setTimeout(() => { delete bande.dataset.glisse; }, 400); };
+    bande.addEventListener("pointerdown", e => { depart = { x: e.clientX, y: e.clientY }; tire = false; bouge = false; });
     bande.addEventListener("pointermove", e => {
-      if (depart == null) return;
-      const dy = depart - e.clientY;                       // positif : vers le haut
-      if (!tire && Math.abs(dy) > 10) { tire = true; bande.setPointerCapture?.(e.pointerId); panneau.classList.add("tire"); }
+      if (!depart) return;
+      const dx = e.clientX - depart.x, dy = depart.y - e.clientY;   // dy positif : vers le haut
+      const n = nature(dx, dy);
+      if (n !== "appui") bouge = true;
+      if (!tire && n === "tire") { tire = true; bande.setPointerCapture?.(e.pointerId); panneau.classList.add("tire"); }
       if (!tire) return;
       const fermeY = haut() - bande.getBoundingClientRect().height;
       const y = ouvert ? Math.max(0, Math.min(fermeY, -dy)) : Math.max(0, Math.min(fermeY, fermeY - dy));
       panneau.style.transform = `translateY(${y}px)`;
     });
-    const fin = e => {
-      if (depart == null) return;
-      const dy = depart - e.clientY;
-      const etaitTire = tire;
-      depart = null; tire = false;
-      panneau.classList.remove("tire"); panneau.style.transform = "";
+    bande.addEventListener("pointerup", e => {
+      if (!depart) return;
+      const dy = depart.y - e.clientY, etaitTire = tire, avaitBouge = bouge;
+      annule();
+      if (avaitBouge) garde();
       if (!etaitTire) return;
-      bande.dataset.glisse = "1"; setTimeout(() => { delete bande.dataset.glisse; }, 0);
-      if (!ouvert && dy > 50) location.hash = (cible && cible.dataset.href) || "#/fiche";
-      else if (ouvert && dy < -60) location.hash = "#/";
-    };
-    bande.addEventListener("pointerup", fin); bande.addEventListener("pointercancel", fin);
+      // Tirer ouvre toujours la Fiche : l'onglet sous le doigt au départ ne compte pas (sinon un tirage lançait la catégorie touchée).
+      const r = issue(ouvert, dy);
+      if (r === "ouvrir") location.hash = "#/fiche"; else if (r === "fermer") location.hash = "#/";
+    });
+    bande.addEventListener("pointercancel", () => { if (bouge) garde(); annule(); });   // le navigateur reprend le geste : on ne navigue pas
     bande.addEventListener("click", e => { if (bande.dataset.glisse) { e.preventDefault(); e.stopPropagation(); } }, true);
   }
 

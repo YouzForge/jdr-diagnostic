@@ -55,6 +55,11 @@ const sansNumero = fichier => String(fichier).replace(/^\d+[_\- ]+/, "");
 export const clesDe = e => [...new Set([cleCible(e.fichier), cleCible(sansNumero(e.fichier)), cleCible(e.titre || "")].filter(Boolean))];
 /** `nom` (une désignation écrite à la main) désigne-t-il cet élément ? */
 export const designe = (e, nom) => clesDe(e).includes(cleCible(nom));
+/**
+ * Savoirs liés à une rencontre que le personnage possède. `noms` : désignations écrites par le MJ ; `savoirs` : ceux du dossier du joueur.
+ * Un savoir non possédé n'apparaît nulle part (pas même son nom) ; un même savoir désigné deux fois n'est listé qu'une fois.
+ */
+export const savoirsAppris = (noms, savoirs) => [...new Set((noms || []).map(nom => savoirs.find(s => designe(s, nom))).filter(Boolean))];
 
 /** Récit du MJ pour une session (publié dans la table) : titre, numéro, date, corps. */
 export function lireRecit(contenu, fichier) {
