@@ -3,7 +3,7 @@
 // RÈGLE du moteur : jamais de innerHTML ; tout est construit avec le DOM.
 import { h, icon, feuille, message, fermerFeuilles } from "./ui.js";
 import { messageErreur } from "../../src/joueur/erreurs.js";
-import { verifierEtiquette, MAX_TITRE, MAX_CORPS_NOTE, MAX_NOTE_RENCONTRE, MAX_BOURSE, MAX_ETIQUETTE } from "../../src/joueur/ecriture.js";
+import { verifierEtiquette, etiquettesUtilisees, MAX_TITRE, MAX_CORPS_NOTE, MAX_NOTE_RENCONTRE, MAX_BOURSE, MAX_ETIQUETTE } from "../../src/joueur/ecriture.js";
 import { verifierNomDossier } from "../../src/depot/depot.js";
 import { EcritureInvalide } from "../../src/ecriture/fiche.js";
 
@@ -140,10 +140,26 @@ export function blocEtiquettes(ctx, el, { fixes = [], posees = [], surChangement
   const msg = h("div", { class: "jr-retour-action" });
   const champAjout = saisie({ maxlength: String(MAX_ETIQUETTE), placeholder: "Nouvelle étiquette", "aria-label": "Nouvelle étiquette", enterkeyhint: "done" });
   const ajouter = h("button", { class: "jr-bouton", type: "button", "aria-label": "Ajouter l'étiquette" }, icon("plus", 18));
+  // Étiquettes déjà utilisées par le joueur (sur n'importe quel élément) : proposées d'un appui, filtrées par ce qu'il tape.
+  const zoneSuggestions = h("div", { class: "jr-suggestions", role: "group", "aria-label": "Étiquettes déjà utilisées" });
+  let deja = [];
+  function dessinerSuggestions() {
+    const frappe = champAjout.value.replace(/\s+/g, " ").trim().toLowerCase();
+    const proposees = etiquettesUtilisees(new Map([["", deja]]), { sauf: [...liste, ...fixes] }).filter(t => !frappe || t.toLowerCase().includes(frappe));
+    zoneSuggestions.replaceChildren(...(proposees.length ? [h("span", { class: "jr-aide" }, "Déjà utilisées"), ...proposees.map(t => h("button", { type: "button", class: "jr-pastille petite", onclick: () => ecrire([...liste, t]) }, t))] : []));
+    zoneSuggestions.hidden = !proposees.length;
+  }
+  async function chargerSuggestions() {
+    try { const r = await ctx.chargerEtiquettes(); deja = etiquettesUtilisees(r.map); } catch (e) { if (e && (e.status === 401 || e.auth)) throw e; deja = []; }
+    dessinerSuggestions();
+  }
   async function ecrire(nouvelle) {
-    const r = await executer(ctx, async () => ctx.donnees.poserEtiquettes(el, nouvelle), { zone: msg, boutons: [ajouter, ...zonePuces.querySelectorAll("button")] });
+    const r = await executer(ctx, async () => ctx.donnees.poserEtiquettes(el, nouvelle), { zone: msg, boutons: [ajouter, ...zonePuces.querySelectorAll("button"), ...zoneSuggestions.querySelectorAll("button")] });
     if (!r.ok) return false;
     liste = nouvelle; ctx.vider(); dessiner(); surChangement(liste);
+    deja = etiquettesUtilisees(new Map([["", [...deja, ...liste]]]));   // la nouvelle étiquette rejoint tout de suite la liste…
+    dessinerSuggestions();
+    chargerSuggestions();                                                // …puis la liste est relue dans le fichier (une étiquette retirée de son seul élément disparaît)
     return true;
   }
   function dessiner() {
@@ -160,6 +176,9 @@ export function blocEtiquettes(ctx, el, { fixes = [], posees = [], surChangement
   }
   ajouter.addEventListener("click", ajout);
   champAjout.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); ajout(); } });
+  champAjout.addEventListener("input", dessinerSuggestions);
   dessiner();
-  return h("section", { class: "jr-etiquettes", "aria-label": "Étiquettes" }, zonePuces, h("div", { class: "jr-ajout" }, champAjout, ajouter), msg);
+  zoneSuggestions.hidden = true;
+  chargerSuggestions();
+  return h("section", { class: "jr-etiquettes", "aria-label": "Étiquettes" }, zonePuces, h("div", { class: "jr-ajout" }, champAjout, ajouter), zoneSuggestions, msg);
 }

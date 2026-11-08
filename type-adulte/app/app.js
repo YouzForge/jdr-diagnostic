@@ -89,7 +89,7 @@ const PROBLEMES = {
   acces_retire: p => `L'accès à ${p.role === "table" ? "la table" : "ton dossier"} a été retiré ou n'existe plus : redemande un lien au MJ.`,
   marqueur_change: p => `Le dossier « ${p.role === "table" ? "table" : "joueur"} » ne ressemble plus à celui d'avant : redemande un lien au MJ.`,
   lien: p => `Le lien n° ${p.numero} n'ouvre rien avec ce compte. Vérifie que tu es connecté avec le bon compte Microsoft, ou redemande un lien au MJ.`,
-  ambigu: p => `Plusieurs dossiers « ${p.role} » sont partagés avec ce compte : demande au MJ d'en retirer un.`,
+  ambigu: p => `Plusieurs dossiers « ${p.role} » sont partagés avec ce compte${p.sources && p.sources.length ? " (retrouvés " + [...new Set(p.sources)].map(x => SOURCES[x] || x).join(" et ") + ")" : ""} : demande au MJ d'en retirer un.`,
   marqueur_sans_pseudo: () => "Un dossier « joueur » partagé avec ce compte n'a pas de pseudo dans son marqueur : il n'est pas utilisé. Demande au MJ de le régénérer.",
   coffre_partage: () => "Attention : le coffre du MJ est partagé avec ce compte. Préviens le MJ tout de suite : cette application ne l'utilisera jamais.",
   marqueur_illisible: p => `Un dossier retrouvé ${SOURCES[p.source] || "ailleurs"} n'a pas pu être lu (${p.status ? "code " + p.status + (p.code ? " · " + p.code : "") : "réseau ou blocage"}). ${p.status === 403 ? "C'est sans doute un ancien partage ou raccourci : il est ignoré." : "Il est ignoré ; réessaie si un dossier manque."}`,

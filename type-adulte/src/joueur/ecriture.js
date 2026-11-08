@@ -25,6 +25,21 @@ export function verifierEtiquette(e) {
 }
 
 /**
+ * Les étiquettes déjà posées par le joueur (tous éléments confondus), pour les lui proposer à l'ajout : sans doublon à la casse près (la première graphie
+ * rencontrée est gardée), triées à la française, sans celles de `sauf` (déjà sur l'élément). `map` : Map(cible → [étiquettes]) de « Etiquettes.md ».
+ */
+export function etiquettesUtilisees(map, { sauf = [] } = {}) {
+  const ecartees = new Set(sauf.map(t => String(t).toLowerCase()));
+  const vues = new Map();
+  for (const liste of map ? map.values() : []) for (const t of liste || []) {
+    if (typeof t !== "string" || !t.trim()) continue;
+    const k = t.toLowerCase();
+    if (!ecartees.has(k) && !vues.has(k)) vues.set(k, t);
+  }
+  return [...vues.values()].sort((a, b) => a.localeCompare(b, "fr"));
+}
+
+/**
  * Pose les étiquettes d'un élément dans le fichier « Etiquettes.md » du joueur (lignes « - cible : étiquette, étiquette »).
  * `texte` : contenu actuel (`null` = fichier à créer) ; `cible` : nom de fichier de l'élément (sans « .md ») ; `liste` : les étiquettes voulues
  * (vide = on retire la ligne). Les autres lignes, leur ordre et les fins de ligne sont conservés tels quels.

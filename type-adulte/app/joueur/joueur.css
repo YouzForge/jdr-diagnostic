@@ -10,6 +10,8 @@
 body.joueur{
   --sol:#2c2928; --panneau:#3d3835; --creux:#1d1b1a; --trait:#5a524b; --texte:#f1e9dc; --voile:#b3a798;
   --rouge:#c23b25; --orange:#ef8a3e; --vert:#2f7d6b; --vert-vif:#2fae8f;
+  /* La feuille générale du moteur (style.css) lit --carte, --bord, --doux, --fond, --accent, --erreur : on les aligne sur le thème joueur, sinon un téléphone en thème clair donne des champs et des en-têtes blancs. Valeurs = celles du thème sombre de la feuille générale (l'aspect vu sur un ordinateur en thème sombre). */
+  color-scheme:dark; --carte:#211e1b; --bord:#8884; --doux:#a39b90; --fond:#171513; --accent:var(--orange); --erreur:#f08a78; --alerte:var(--orange);
   --haut:calc(max(104px, 17dvh) + env(safe-area-inset-top,0px)); --h-bande:calc(66px + env(safe-area-inset-bottom,0px));
   --s-b:env(safe-area-inset-bottom,0px); --s-h:env(safe-area-inset-top,0px);
   margin:0; background:var(--creux); color:var(--texte); font-family:"Inter",system-ui,sans-serif; font-size:16px; line-height:1.45; font-weight:400;
@@ -35,6 +37,8 @@ body.joueur > header, body.joueur > main, body.joueur > footer{display:none}
 .jr-fond-vide{width:100%;height:100%;display:grid;place-items:center;color:var(--trait)}
 .jr-nom{position:absolute;z-index:3;top:calc(12px + var(--s-h));left:14px;max-width:calc(100% - 84px);height:44px;padding:0 14px 0 18px;display:flex;align-items:center;gap:8px;border-radius:22px;border:1px solid var(--trait);background:rgba(29,27,26,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);font-family:"Cinzel",serif;font-weight:700;font-size:17px;color:var(--texte)}
 .jr-nom span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Accueil (onglets rétractés) : le nom du personnage est centré en bas, juste au-dessus de la bande d'onglets, à hauteur du bouton d100 ; panneau ouvert, il reste en haut à gauche. */
+.jr.accueil .jr-nom{top:auto;left:50%;bottom:calc(var(--h-bande) + 22px);transform:translateX(-50%);max-width:calc(100% - 176px)}
 .jr-rond{width:44px;height:44px;border-radius:50%;border:1px solid var(--trait);background:rgba(29,27,26,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:grid;place-items:center;padding:0;color:var(--texte)}
 .jr-rond.loupe{position:absolute;z-index:3;top:calc(12px + var(--s-h));right:14px}
 .jr-rond.grand{width:48px;height:48px;background:rgba(29,27,26,.85)}
@@ -240,9 +244,9 @@ button.jr-ligne:active{background:var(--creux)}
 .jr-actions .jr-bouton{flex:1 1 140px}
 .jr-bouton.danger{border-color:var(--rouge);color:#f3b8ad}
 .jr-bouton.danger:disabled{border-color:var(--trait);color:var(--voile)}
-.jr-saisie{width:100%;min-height:48px;padding:10px 12px;border-radius:10px;border:1px solid var(--trait);background:var(--creux);color:var(--texte);font-size:16px;font-family:inherit}
-.jr-saisie:focus{outline:2px solid var(--orange);outline-offset:1px}
-.jr-saisie.zone{min-height:180px;resize:vertical;line-height:1.45}
+body.joueur .jr-saisie{width:100%;min-height:48px;padding:10px 12px;border-radius:10px;border:1px solid var(--trait);background:var(--creux);color:var(--texte);font-size:16px;font-family:inherit}
+body.joueur .jr-saisie:focus{outline:2px solid var(--orange);outline-offset:1px}
+body.joueur .jr-saisie.zone{min-height:180px;resize:vertical;line-height:1.45}
 .jr-case{display:flex;align-items:center;gap:10px;min-height:44px;font-size:15px}
 .jr-case input{width:22px;height:22px;accent-color:var(--rouge)}
 .jr-aide{font-size:12.5px;color:var(--voile)}
@@ -250,8 +254,11 @@ button.jr-ligne:active{background:var(--creux)}
 .jr-retour-action:empty{display:none}
 .jr-etiquettes{display:flex;flex-direction:column;gap:8px}
 .jr-ajout{display:flex;gap:8px}
-.jr-ajout .jr-saisie{min-height:44px}
+body.joueur .jr-ajout .jr-saisie{min-height:44px}
 .jr-ajout .jr-bouton{min-height:44px;padding:0 14px;flex:none}
+.jr-suggestions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.jr-suggestions[hidden]{display:none}
+.jr-pastille.petite{min-height:38px;padding:0 12px;font-size:13px}
 .jr-puce.retirable{display:inline-flex;align-items:center;gap:4px;padding-right:2px}
 .jr-puce.retirable button{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--voile)}
 .jr-puce.retirable button:disabled{opacity:.5}

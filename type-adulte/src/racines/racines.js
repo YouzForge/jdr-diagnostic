@@ -10,7 +10,18 @@ import { lireMarqueur, NOM_MARQUEUR } from "./marqueur.js";
 import { pool } from "../graph/pool.js";
 
 const EMPLACEMENTS_RACCOURCIS = ["", "Documents", "Documents/JDR"];
-const cle = n => n.driveId + "|" + n.itemId;
+/**
+ * Identité d'un dossier : « disque | élément ». Sur un OneDrive personnel, l'identifiant de disque (16 caractères hexadécimaux) et le préfixe de l'identifiant
+ * d'élément reviennent tantôt en majuscules, tantôt en minuscules selon l'API qui répond (lien de partage, raccourci, « Partagés avec moi »). Sans cette
+ * normalisation, un même dossier lu par deux voies serait pris pour deux dossiers, et l'application refuserait de choisir (« plusieurs dossiers partagés »).
+ * Les identifiants professionnels (SharePoint, base 64) restent comparés à l'identique.
+ */
+export function cleDossier(n) {
+  const d = String(n.driveId), i = String(n.itemId);
+  if (/^[0-9a-f]{16}$/i.test(d) && /^[0-9a-f]{16}![0-9]+$/i.test(i)) return d.toUpperCase() + "|" + i.toUpperCase();
+  return d + "|" + i;
+}
+const cle = cleDossier;
 const estAuth = e => e && (e.status === 401 || e.auth);
 
 /**
@@ -75,7 +86,7 @@ export async function trouverRacines({ client, profil, memorises = [], liens = [
     const l = candidats.filter(c => c.marqueur.role === role);
     const uniques = [...new Map(l.map(c => [cle(c), c])).values()];
     if (uniques.length === 1) racines[role] = { driveId: uniques[0].driveId, itemId: uniques[0].itemId, ...(role === "joueur" ? { pseudo: uniques[0].marqueur.pseudo } : {}) };
-    else if (uniques.length > 1) problemes.push({ type: "ambigu", role, noms: uniques.map(c => c.name) });
+    else if (uniques.length > 1) problemes.push({ type: "ambigu", role, noms: uniques.map(c => c.name), sources: uniques.map(c => c.source) });
   }
   const complet = attendus.every(r => racines[r]) && !problemes.some(p => p.type === "ambigu" || p.type === "coffre_partage");
   return { racines, complet, problemes, diagnostic, candidats: candidats.map(c => ({ name: c.name, role: c.marqueur.role, source: c.source })) };
