@@ -13,6 +13,7 @@ import { ecranSacDossiers, ecranSacTout, ecranSacDossier } from "./ecrans_sac.js
 import { ecranSavoirs, ecranQuetes, ecranNotes, ecranJournal, ecranRencontres, ecranRencontre } from "./ecrans_savoirs.js";
 import { ecranCarte } from "./ecrans_carte.js";
 import { ecranRecherche } from "./ecrans_recherche.js";
+import { ecranAccueilMJ, ecranDocumentMJ } from "./ecrans_mj.js";
 import { creerStockageImages } from "./stockage_images.js";
 
 const dec = decodeURIComponent;
@@ -48,6 +49,13 @@ const ROUTES = [
   [/^\/rencontres\/(.+)$/, (ctx, f) => ecranRencontre(ctx, dec(f))],
   [/^\/carte$/, ctx => ecranCarte(ctx)],
   [/^\/recherche$/, ctx => ecranRecherche(ctx)]
+];
+
+/** Écrans du MJ (D47) : hors de la coque du joueur (pas de portrait ni d'onglets). Chaque écran renvoie { page }. */
+const ROUTES_MJ = [
+  [/^\/mj$/, ctx => ecranAccueilMJ(ctx)],
+  [/^\/mj\/lieu\/(.+)$/, (ctx, f) => ecranDocumentMJ(ctx, "lieu", dec(f))],
+  [/^\/mj\/session\/(.+)$/, (ctx, f) => ecranDocumentMJ(ctx, "session", dec(f))]
 ];
 
 export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur, surErreur, ecriture = false }) {
@@ -123,15 +131,18 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
     // Les autres onglets se lisent pendant que le joueur regarde le premier : le changement d'onglet est alors immédiat.
     if (typeof ctx.donnees.prechauffer === "function") setTimeout(() => { ctx.donnees.prechauffer().catch(e => { if (e && (e.status === 401 || e.auth)) surErreur(e); }); }, 300);
   }
-  if (!estMJ()) ouvrirDonnees(session.pseudo || "");
-  else if (lireSession("voir")) ouvrirDonnees(lireSession("voir"));
+  // Un joueur ouvre son dossier ; le MJ ouvre sans joueur (écrans du MJ) ou, s'il l'a choisi, « comme » un joueur.
+  ouvrirDonnees(estMJ() ? (lireSession("voir") || "") : (session.pseudo || ""));
+  ctx.actions = { versMoteur, deconnecter, actualiser: () => { ctx.vider(); ctx.donnees.actualiser(); viderImages(); afficher(); } };
+  const accueilMJ = () => { ecrireSession("voir", null); ouvrirDonnees(""); location.hash = "#/mj"; };
 
   /* ---- Coque ---- */
   function menu(fiche) {
     const fermer = feuille("Menu", h("div", { class: "jr-menu" },
       h("p", { class: "jr-meta" }, estMJ() ? `Tu vois l'application comme : ${ctx.donnees.pseudo.replace(/_/g, " ")}` : (fiche && fiche.nom) || ctx.donnees.pseudo || ""),
       h("button", { class: "jr-bouton", onclick: () => { fermer(); ctx.vider(); ctx.donnees.actualiser(); viderImages(); afficher(); } }, icon("clock", 18), "Actualiser"),
-      estMJ() ? h("button", { class: "jr-bouton", onclick: () => { fermer(); ecrireSession("voir", null); location.hash = "#/mj"; } }, icon("user", 18), "Changer de joueur") : null,
+      estMJ() ? h("button", { class: "jr-bouton", onclick: () => { fermer(); accueilMJ(); } }, icon("book", 18), "Accueil du MJ") : null,
+      estMJ() ? h("button", { class: "jr-bouton", onclick: () => { fermer(); ecrireSession("voir", null); location.hash = "#/mj/joueurs"; } }, icon("user", 18), "Changer de joueur") : null,
       estMJ() && versMoteur ? h("button", { class: "jr-bouton", onclick: () => { fermer(); versMoteur(); } }, icon("scroll", 18), "Listes du moteur (MJ)") : null,
       h("button", { class: "jr-bouton", onclick: () => { fermer(); deconnecter(); } }, icon("lock", 18), "Se déconnecter")));
   }
@@ -198,6 +209,7 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
   async function ecranChoix() {
     const noms = (await listerJoueurs({ session: ctx.session, profil }).catch(e => { if (e && (e.status === 401 || e.auth)) throw e; return []; })).filter(n => !String(n).startsWith("_")); // « _Modele_joueur » n'est pas un joueur
     const page = h("div", { class: "jr-choix" },
+      h("a", { class: "jr-retour", href: "#/mj" }, icon("back", 18), "Accueil du MJ"),
       h("h1", null, "Voir comme un joueur"),
       h("p", { class: "jr-meta" }, "Tu verras exactement ce que voit ce joueur : son dossier et la table. Rien n'est modifié."),
       noms.length ? h("ul", { class: "jr-cartes" }, noms.map(n => h("li", null, h("button", { class: "jr-carte", onclick: () => { ecrireSession("voir", n); ouvrirDonnees(n); location.hash = "#/"; } },
@@ -216,13 +228,21 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
     if (nettoyage) { try { nettoyage(); } catch { /* sans importance */ } nettoyage = null; }
     const attendre = setTimeout(() => { if (moi === jeton) racine.replaceChildren(attente()); }, 250);
     try {
-      if (estMJ() && !ctx.donnees) {
-        if (chemin !== "/mj") { clearTimeout(attendre); location.hash = "#/mj"; return; }
-      }
-      if (chemin === "/mj" && estMJ()) {
+      if (estMJ() && !ctx.donnees.pseudo && !chemin.startsWith("/mj")) { clearTimeout(attendre); location.hash = "#/mj"; return; }   // sans joueur choisi : écrans du MJ seulement
+      if (estMJ() && chemin === "/mj/joueurs") {
         const noeud = await ecranChoix();
         clearTimeout(attendre);
         if (moi === jeton) { ctx.panneau = "ferme"; racine.replaceChildren(noeud); }
+        return;
+      }
+      if (chemin.startsWith("/mj")) {
+        let mj = null;
+        if (estMJ()) for (const [re, fn] of ROUTES_MJ) { const m = chemin.match(re); if (m) { mj = { fn, args: m.slice(1) }; break; } }
+        if (!mj) { clearTimeout(attendre); location.hash = estMJ() ? "#/mj" : "#/"; return; }   // un joueur n'a aucun écran du MJ
+        window.scrollTo(0, 0);
+        const ecran = await mj.fn(ctx, ...mj.args);
+        clearTimeout(attendre);
+        if (moi === jeton) { ctx.panneau = "ferme"; racine.replaceChildren(ecran.page); }
         return;
       }
       let trouve = null;

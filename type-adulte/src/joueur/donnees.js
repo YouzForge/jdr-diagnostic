@@ -3,6 +3,7 @@
 //
 // Deux façons d'ouvrir : un JOUEUR lit son dossier (racine « joueur ») et la table ; le MJ, pour « voir comme un joueur », lit
 // `Joueurs/<pseudo>` dans son propre OneDrive. Dans les deux cas l'application ne demande que des chemins relatifs au dossier du joueur.
+// Le MJ peut aussi ouvrir SANS joueur : il n'a alors que les écrans du MJ (lieux, sessions de jeu, documents du coffre), tous lus avec la même copie d'abord.
 import { pool } from "../graph/pool.js";
 import { FicheExiste, ConflitEcriture } from "../graph/client.js";
 import { AccesRefuse, AccesRetire } from "../depot/depot.js";
@@ -11,6 +12,7 @@ import { lireElement, lireObjet, lireRencontre, lireEtiquettes, lireRecit, cleCi
 import { entreeIndex } from "./recherche.js";
 import { poserEtiquettes, texteNote, modifierNote, noteRencontre, changerBourse, changerPV, nomDeFichierNote } from "./ecriture.js";
 import { norm } from "../md/doc.js";
+import { lireLieuMJ, lireSessionMJ, trierParNumero, trierSessions, sessionAVenir } from "../mj/accueil.js";
 
 const IMAGE = /\.(jpe?g|png|webp)$/i;
 const MARKDOWN = /^(?!00_|LISEZMOI).+\.md$/i;
@@ -42,11 +44,17 @@ const NOM_SIMPLE = /^(?!00_)[^/\\:?*"<>|\u0000-\u001f]{1,120}\.md$/i;
  */
 export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = false, delaiRevalidation = 15_000, fraicheurMemo = 60_000, images = null }) {
   if (role !== "joueur" && role !== "mj") throw new TypeError("Rôle inconnu : " + role);
-  if (role === "mj" && !pseudo) throw new TypeError("Le MJ doit choisir un joueur à voir");
   const sec = profil.securite || {};
   const dossiers = dossiersDuProfil(profil);
   /** Chemin d'un élément du dossier du joueur. Le MJ passe par le dossier « Joueurs » de son OneDrive ; un joueur lit à la racine de son dossier partagé. */
-  const dansJoueur = rel => (role === "mj" ? `${sec.joueurs || "Joueurs"}/${pseudo}/${rel}` : rel);
+  const dansJoueur = rel => {
+    if (role !== "mj") return rel;
+    if (!pseudo) throw new AccesRefuse("Choisis d'abord un joueur à voir", "joueur_a_choisir");
+    return `${sec.joueurs || "Joueurs"}/${pseudo}/${rel}`;
+  };
+  /** Dossier d'une collection du profil (zone « mj ») : null si le profil ne la déclare pas. */
+  const dossierDeCollection = id => { const c = (profil.collections || []).find(x => x.id === id && x.zone === "mj"); return c ? c.dossier : null; };
+  const reserveMJ = () => { if (role !== "mj") throw new AccesRefuse("Réservé au MJ", "reserve_mj"); };
 
   async function lister(chemin) {
     const r = await depot.lister(chemin);
@@ -156,9 +164,47 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
     attendreVerifications: () => Promise.all([...enCours.values()]),
     /** Lit les écrans dans l'ordre, un à la fois, pendant que le joueur lit le premier : le changement d'onglet est alors immédiat. */
     async prechauffer() {
-      for (const t of [api.fiche, api.etiquettes, api.savoirs, api.quetes, api.rencontres, api.journal, api.sac, api.cartes]) {
+      for (const t of (pseudo || role !== "mj" ? [api.fiche, api.etiquettes, api.savoirs, api.quetes, api.rencontres, api.journal, api.sac, api.cartes] : [api.lieux, api.sessions])) {
         try { await t(); } catch (e) { if (estAuth(e)) throw e; }
       }
+    },
+
+    // ------------------------------------------------------------ Écrans du MJ (lecture seule, coffre du MJ)
+    /** Les lieux du coffre, rangés par numéro. → { lieux:[lireLieuMJ…], perime, absent } ; `absent` : le profil ne déclare pas de collection « lieu » ou son dossier n'existe pas. */
+    lieux: () => memoiser("lieux", async () => {
+      reserveMJ();
+      const d = dossierDeCollection("lieu");
+      if (!d) return { lieux: [], perime: false, absent: true };
+      const r = await dossier(d, lireLieuMJ);
+      return { lieux: trierParNumero(r.items), perime: r.perime, absent: false };
+    }),
+    /** Les sessions de jeu du coffre, rangées par saison puis numéro, et la session à venir (la première « prête »). */
+    sessions: () => memoiser("sessions", async () => {
+      reserveMJ();
+      const d = dossierDeCollection("session");
+      if (!d) return { sessions: [], aVenir: null, perime: false, absent: true };
+      const r = await dossier(d, lireSessionMJ);
+      const sessions = trierSessions(r.items);
+      return { sessions, aVenir: sessionAVenir(sessions), perime: r.perime, absent: false };
+    }),
+    /** Texte complet d'un lieu ou d'une session de jeu (copie locale d'abord). `fichier` : un nom de fichier du dossier, jamais un chemin. → { texte, perime } ; texte null = fichier disparu. */
+    async document(collection, fichier) {
+      reserveMJ();
+      const d = dossierDeCollection(collection);
+      if (!d) throw new AccesRefuse("Collection non déclarée dans le profil", "collection_inconnue");
+      if (!NOM_SIMPLE.test(String(fichier))) throw new AccesRefuse("Nom de fichier invalide", "nom_invalide");
+      const chemin = `${d}/${fichier}`;
+      // Réseau : la liste du dossier donne la version du fichier ; il n'est retéléchargé que si elle a changé (un lieu pèse jusqu'à plusieurs dizaines de Ko).
+      const reseau = async () => {
+        const ls = await lister(d);
+        const f = ls.fichiers.find(x => !x.dir && x.name === fichier);
+        if (!f) return { texte: null, perime: ls.perime };
+        const r = await lire(chemin, { sig: f.sig || "" });
+        return { texte: r.texte, perime: r.perime || ls.perime };
+      };
+      const c = rapide ? depot.lireCopie(chemin) : null;
+      if (c != null) { revalider("f:" + chemin, reseau, { texte: c }); return { texte: c, perime: horsLigne }; }
+      return reseau();
     },
 
     fiche: () => memoiser("fiche", async () => {

@@ -85,6 +85,7 @@ function rendreBlocs(blocs) {
     if (b.t === "p") return h("p", {}, morceaux(b.morceaux));
     if (b.t === "ul" || b.t === "ol") return h(b.t, {}, b.items.map(it => h("li", {}, morceaux(it))));
     if (b.t === "cite") return h("blockquote", {}, morceaux(b.morceaux));
+    if (b.t === "table") return h("div", { class: "md-tableau" }, h("table", {}, h("thead", {}, h("tr", {}, b.entetes.map(c => h("th", {}, morceaux(c))))), h("tbody", {}, b.lignes.map(r => h("tr", {}, r.map(c => h("td", {}, morceaux(c))))))));
     return h("hr");
   });
 }

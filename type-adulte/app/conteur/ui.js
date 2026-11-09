@@ -124,6 +124,7 @@ export function rendreMarkdown(corps, { titreARetirer } = {}) {
     if (b.t === "p") return h("p", null, morceaux(b.morceaux));
     if (b.t === "ul" || b.t === "ol") return h(b.t, null, b.items.map(it => h("li", null, morceaux(it))));
     if (b.t === "cite") return h("blockquote", null, morceaux(b.morceaux));
+    if (b.t === "table") return h("div", { class: "md-tableau" }, h("table", null, h("thead", null, h("tr", null, b.entetes.map(c => h("th", null, morceaux(c))))), h("tbody", null, b.lignes.map(r => h("tr", null, r.map(c => h("td", null, morceaux(c))))))));
     return h("hr");
   });
 }
