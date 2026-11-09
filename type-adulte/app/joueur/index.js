@@ -13,7 +13,7 @@ import { ecranSacDossiers, ecranSacTout, ecranSacDossier } from "./ecrans_sac.js
 import { ecranSavoirs, ecranQuetes, ecranNotes, ecranJournal, ecranRencontres, ecranRencontre } from "./ecrans_savoirs.js";
 import { ecranCarte } from "./ecrans_carte.js";
 import { ecranRecherche } from "./ecrans_recherche.js";
-import { ecranAccueilMJ, ecranDocumentMJ } from "./ecrans_mj.js";
+import { ecranAccueilMJ, ecranDocumentMJ, cadreMJ } from "./ecrans_mj.js";
 import { creerStockageImages } from "./stockage_images.js";
 
 const dec = decodeURIComponent;
@@ -208,14 +208,11 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
   /* ---- Choix du joueur (MJ) ---- */
   async function ecranChoix() {
     const noms = (await listerJoueurs({ session: ctx.session, profil }).catch(e => { if (e && (e.status === 401 || e.auth)) throw e; return []; })).filter(n => !String(n).startsWith("_")); // « _Modele_joueur » n'est pas un joueur
-    const page = h("div", { class: "jr-choix" },
-      h("a", { class: "jr-retour", href: "#/mj" }, icon("back", 18), "Accueil du MJ"),
-      h("h1", null, "Voir comme un joueur"),
-      h("p", { class: "jr-meta" }, "Tu verras exactement ce que voit ce joueur : son dossier et la table. Rien n'est modifié."),
-      noms.length ? h("ul", { class: "jr-cartes" }, noms.map(n => h("li", null, h("button", { class: "jr-carte", onclick: () => { ecrireSession("voir", n); ouvrirDonnees(n); location.hash = "#/"; } },
-        h("div", { class: "jr-carte-tete" }, icon("user", 20), h("span", { class: "jr-carte-titre" }, n.replace(/_/g, " "))))))) : message("Aucun dossier de joueur dans « " + (profil.securite.joueurs || "Joueurs") + " » : crée-en un avec le générateur.", "info"),
-      versMoteur ? h("button", { class: "jr-bouton", onclick: () => versMoteur() }, icon("scroll", 18), "Listes du moteur (MJ)") : null,
-      h("button", { class: "jr-bouton", onclick: () => deconnecter() }, icon("lock", 18), "Se déconnecter"));
+    const page = cadreMJ(ctx, { actif: "joueurs" },
+      h("div", { class: "mj-doc-tete" }, h("h2", { class: "mj-doc-titre" }, "Voir comme un joueur"),
+        h("p", { class: "jr-meta" }, "Tu verras exactement ce que voit ce joueur : son dossier et la table. Rien n'est modifié.")),
+      noms.length ? h("ul", { class: "jr-choix-liste" }, noms.map(n => h("li", null, h("button", { class: "jr-carte", onclick: () => { ecrireSession("voir", n); ouvrirDonnees(n); location.hash = "#/"; } },
+        h("div", { class: "jr-carte-tete" }, icon("user", 20), h("span", { class: "jr-carte-titre" }, n.replace(/_/g, " "))))))) : message("Aucun dossier de joueur dans « " + (profil.securite.joueurs || "Joueurs") + " » : crée-en un avec le générateur.", "info"));
     return page;
   }
 

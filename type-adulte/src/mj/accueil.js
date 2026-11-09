@@ -2,7 +2,7 @@
 // de SESSION DE JEU (la préparation courte de la prochaine séance). Sans DOM, sans réseau : tout se teste dans Node.
 //
 // Un lieu se range par son numéro (« 07a - Grimforge » : 07, puis 07a), tiré de l'en-tête `numero` ou, à défaut, du début du nom de fichier.
-// L'état d'un lieu (`etat`) est écrit par le MJ : « à venir » (ou « en attente »), « en cours » (plusieurs séances), « joué ». Absent = non renseigné,
+// L'état d'un lieu (`etat`) est écrit par le MJ : « idée » (à peine esquissé), « à venir » (ou « en attente »), « en cours » (plusieurs séances), « joué ». Absent = non renseigné,
 // jamais deviné. Une session de jeu a un `statut` : « idée », « prête » ou « jouée » ; la « session à venir » est la première session « prête ».
 import { parseDoc, norm, intOf, humanize } from "../md/doc.js";
 
@@ -10,11 +10,13 @@ const t = v => (v == null ? "" : String(v).trim());
 
 /** États d'un lieu, dans l'ordre d'affichage. `cle` sert aux filtres, `libelle` à l'affichage. */
 export const ETATS_LIEU = [
+  { cle: "idee", libelle: "Idée" },
   { cle: "a_venir", libelle: "À venir" },
   { cle: "en_cours", libelle: "En cours" },
   { cle: "joue", libelle: "Joué" }
 ];
 const SYNONYMES_ETAT = {
+  idee: ["idee", "piste", "brouillon", "a developper", "a ecrire"],
   a_venir: ["a venir", "en attente", "attente", "prevu", "non joue", "a jouer"],
   en_cours: ["en cours", "commence", "entame"],
   joue: ["joue", "jouee", "termine", "terminee", "fini", "finie", "fait", "faite"]
@@ -112,19 +114,19 @@ export function sessionAVenir(sessions) {
   return pretes.length ? { session: pretes[0], autres: pretes.length - 1 } : null;
 }
 
-/** Filtre de la liste des lieux : `etat` ("" = tous, une clé d'état, ou "sans" = non renseigné) et `texte` (titre, région, type, numéro, sans accent ni casse). */
+/** Filtre de la liste des lieux : `etat` ("" = tous, une clé d'état, "sans" = non renseigné, "inconnu" = valeur non reconnue) et `texte` (titre, région, type, numéro, sans accent ni casse). */
 export function filtrerLieux(lieux, { etat = "", texte = "" } = {}) {
   const q = norm(t(texte));
   return lieux.filter(l => {
-    if (etat === "sans" ? l.etat !== "" : etat && l.etat !== etat) return false;
+    if (etat === "sans" ? l.etat !== "" : etat === "inconnu" ? l.etat !== "?" : etat && l.etat !== etat) return false;
     if (!q) return true;
     return norm([l.titre, l.region, l.type, l.numero, l.fichier].join(" ")).includes(q);
   });
 }
 
-/** Comptes par état, pour les pastilles de filtre : { tous, a_venir, en_cours, joue, sans, inconnu }. */
+/** Comptes par état, pour les pastilles de filtre : { tous, idee, a_venir, en_cours, joue, sans, inconnu }. */
 export function compterEtats(lieux) {
-  const c = { tous: lieux.length, a_venir: 0, en_cours: 0, joue: 0, sans: 0, inconnu: 0 };
+  const c = { tous: lieux.length, idee: 0, a_venir: 0, en_cours: 0, joue: 0, sans: 0, inconnu: 0 };
   for (const l of lieux) { if (l.etat === "") c.sans++; else if (l.etat === "?") c.inconnu++; else c[l.etat]++; }
   return c;
 }
