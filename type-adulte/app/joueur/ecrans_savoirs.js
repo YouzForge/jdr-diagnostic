@@ -1,9 +1,9 @@
 // Onglet « Savoirs » et ses six pastilles : Savoirs, Quêtes, Journal, Rencontres, Notes, Carte (la carte est dans ecrans_carte.js).
 // Le MJ écrit les récits et les présentations (lecture seule pour le joueur). Si le joueur peut écrire (tranche 2) : étiquettes, notes libres, notes de journal, « Ma note » des rencontres.
-import { h, icon, message, pastille, meta, puces, extrait, rendreMarkdown, boiteImage, surbrillance } from "./ui.js";
-import { ouvrirElement, etiquettesSeparees } from "./detail.js";
-import { peut, formulaireNote, modifierNote, blocEtiquettes } from "./edition.js";
-import { savoirsAppris } from "../../src/joueur/cartes.js";
+import { h, icon, message, pastille, meta, puces, extrait, rendreMarkdown, boiteImage, surbrillance } from "./ui.js?v=0.16.1";
+import { ouvrirElement, etiquettesSeparees } from "./detail.js?v=0.16.1";
+import { peut, formulaireNote, modifierNote, blocEtiquettes } from "./edition.js?v=0.16.1";
+import { savoirsAppris } from "../../src/joueur/cartes.js?v=0.16.1";
 
 export const PASTILLES = [
   ["savoirs", "Savoirs", "#/savoirs"], ["quetes", "Quêtes", "#/quetes"], ["journal", "Journal", "#/journal"],

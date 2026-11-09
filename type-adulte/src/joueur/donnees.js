@@ -4,15 +4,15 @@
 // Deux façons d'ouvrir : un JOUEUR lit son dossier (racine « joueur ») et la table ; le MJ, pour « voir comme un joueur », lit
 // `Joueurs/<pseudo>` dans son propre OneDrive. Dans les deux cas l'application ne demande que des chemins relatifs au dossier du joueur.
 // Le MJ peut aussi ouvrir SANS joueur : il n'a alors que les écrans du MJ (lieux, sessions de jeu, documents du coffre), tous lus avec la même copie d'abord.
-import { pool } from "../graph/pool.js";
-import { FicheExiste, ConflitEcriture } from "../graph/client.js";
-import { AccesRefuse, AccesRetire } from "../depot/depot.js";
-import { lireFiche } from "./fiche.js";
-import { lireElement, lireObjet, lireRencontre, lireEtiquettes, lireRecit, cleCible, clesDe } from "./cartes.js";
-import { entreeIndex } from "./recherche.js";
-import { poserEtiquettes, texteNote, modifierNote, noteRencontre, changerBourse, changerPV, nomDeFichierNote } from "./ecriture.js";
-import { norm } from "../md/doc.js";
-import { lireLieuMJ, lireSessionMJ, trierParNumero, trierSessions, sessionAVenir } from "../mj/accueil.js";
+import { pool } from "../graph/pool.js?v=0.16.1";
+import { FicheExiste, ConflitEcriture } from "../graph/client.js?v=0.16.1";
+import { AccesRefuse, AccesRetire } from "../depot/depot.js?v=0.16.1";
+import { lireFiche } from "./fiche.js?v=0.16.1";
+import { lireElement, lireObjet, lireRencontre, lireEtiquettes, lireRecit, cleCible, clesDe } from "./cartes.js?v=0.16.1";
+import { entreeIndex } from "./recherche.js?v=0.16.1";
+import { poserEtiquettes, texteNote, modifierNote, noteRencontre, changerBourse, changerPV, nomDeFichierNote } from "./ecriture.js?v=0.16.1";
+import { norm } from "../md/doc.js?v=0.16.1";
+import { lireLieuMJ, lireSessionMJ, trierParNumero, trierSessions, sessionAVenir } from "../mj/accueil.js?v=0.16.1";
 
 const IMAGE = /\.(jpe?g|png|webp)$/i;
 const MARKDOWN = /^(?!00_|LISEZMOI).+\.md$/i;

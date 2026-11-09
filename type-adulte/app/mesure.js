@@ -1,5 +1,5 @@
 // Mode mesure (?perf=1) : petit bandeau qui dit combien de requêtes et combien de temps chaque écran a demandé. Rien n'est envoyé nulle part.
-import { creerMesure, mesurer } from "../src/app/mesure.js";
+import { creerMesure, mesurer } from "../src/app/mesure.js?v=0.16.1";
 
 export function demarrerMesure(fen) {
   const mesure = creerMesure({ maintenant: () => fen.performance.now(), surSegment: dessiner });

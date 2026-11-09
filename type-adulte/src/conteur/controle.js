@@ -1,7 +1,7 @@
 // Contrôle d'une histoire avant de la jouer : dit si le mode Jouer pourra la lire, et ce qui manque sinon.
-import { lireEtapes } from "./etapes.js";
-import { sections } from "../md/doc.js";
-import { parseVoie, MAX_VOIES } from "./voies.js";
+import { lireEtapes } from "./etapes.js?v=0.16.1";
+import { sections } from "../md/doc.js?v=0.16.1";
+import { parseVoie, MAX_VOIES } from "./voies.js?v=0.16.1";
 
 const FIN = /^fin\s*[a-z0-9]*\s*$/i;
 

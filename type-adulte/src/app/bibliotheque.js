@@ -1,6 +1,6 @@
 // Charger une collection POUR L'AFFICHAGE : fiches lues, filtrées selon le rôle, prêtes à montrer.
-import { chargerCollection } from "../collections/charger.js";
-import { preparerFiche } from "./affichage.js";
+import { chargerCollection } from "../collections/charger.js?v=0.16.1";
+import { preparerFiche } from "./affichage.js?v=0.16.1";
 
 /** → { fiches (prêtes à afficher), perime (copie locale servie), illisibles, absent } */
 export async function bibliotheque({ session, profil, col, pseudo }) {

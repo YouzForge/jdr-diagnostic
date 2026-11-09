@@ -3,11 +3,11 @@
 // (un test vérifie cette règle) : une fiche ne peut donc ni exécuter de code ni charger d'image.
 import { creerAuthNavigateur, creerClientGraph, chargerProfil, ouvrirSession, bibliotheque, listerJoueurs, collectionsVisibles,
   validerAutorisations, AccesRefuse, creerStockageNavigateur, creerStockagePersistant, ouvrirMagasinIndexedDB, cheminCollection, peutEcrire, modeleFormulaire, ouvrirPourModifier,
-  enregistrerModification, enregistrerCreation, supprimerFiche, messageEcriture } from "../src/index.js";
+  enregistrerModification, enregistrerCreation, supprimerFiche, messageEcriture } from "../src/index.js?v=0.16.1";
 
-import { icone } from "./icones.js";
-import { PRECHARGE } from "./precharge.js";
-import { purgerImages } from "./joueur/stockage_images.js";
+import { icone } from "./icones.js?v=0.16.1";
+import { PRECHARGE } from "./precharge.js?v=0.16.1";
+import { purgerImages } from "./joueur/stockage_images.js?v=0.16.1";
 
 const $ = id => document.getElementById(id);
 const h = (tag, attrs, ...enfants) => {
@@ -30,7 +30,7 @@ async function ouvrirStockage() {
   } catch { return creerStockageNavigateur(window.localStorage); }
 }
 // Mode mesure (?perf=1) : compte les requêtes et le temps de chaque écran, pour mesurer sans deviner. Chargé seulement à la demande.
-if (/[?&]perf=1(&|$)/.test(location.search)) { try { (await import("./mesure.js")).demarrerMesure(window); } catch { /* la mesure est facultative */ } }
+if (/[?&]perf=1(&|$)/.test(location.search)) { try { (await import("./mesure.js?v=0.16.1")).demarrerMesure(window); } catch { /* la mesure est facultative */ } }
 // Le profil se télécharge pendant que la copie locale s'ouvre ; la connexion démarre dès que la copie locale est prête (elle n'a besoin ni du profil ni du réseau).
 const profilEnCours = chargerLeProfil();
 profilEnCours.catch(() => { /* l'erreur est rendue par demarrer() */ });
@@ -337,7 +337,7 @@ let conteur = null;
 async function lancerConteur() {
   window.removeEventListener("hashchange", route);
   if (conteur) { document.body.classList.add("conteur"); conteur.session = session; conteur.ctx.session = session; conteur.ctx.depot = session.depot; return conteur.afficher(); }
-  const { demarrerConteur } = await import("./conteur/index.js");
+  const { demarrerConteur } = await import("./conteur/index.js?v=0.16.1");
   conteur = demarrerConteur({ profil, session, auth, ecriture: ecritureActive(), surErreur: e => { document.body.classList.remove("conteur"); gerer(e); } });
 }
 
@@ -346,7 +346,7 @@ let joueurApp = null;
 async function lancerJoueur() {
   window.removeEventListener("hashchange", route);
   if (joueurApp) { joueurApp.arreter(); joueurApp = null; }
-  const { demarrerJoueur } = await import("./joueur/index.js");
+  const { demarrerJoueur } = await import("./joueur/index.js?v=0.16.1");
   joueurApp = demarrerJoueur({
     profil, session, auth, deconnecter: () => sortir(), ecriture: ecritureActive(),
     versMoteur: session.role === "mj" ? () => { joueurApp.arreter(); joueurApp = null; window.addEventListener("hashchange", route); location.hash = "#/"; ecranMenu(++nav); } : null,
@@ -357,7 +357,7 @@ async function lancerJoueur() {
 async function chargerLeProfil() {
   const local = ["localhost", "127.0.0.1"].includes(location.hostname);
   // Le profil de test n'est un repli QUE sur la machine de développement : jamais en production.
-  for (const u of local ? ["./profil.json", "../profils_test/profil_TEST_adulte_secrets.json"] : ["./profil.json"]) {
+  for (const u of local ? ["./profil.json?v=0.16.1", "../profils_test/profil_TEST_adulte_secrets.json?v=0.16.1"] : ["./profil.json?v=0.16.1"]) {
     try { const r = await fetch(u); if (r.ok) return chargerProfil(await r.json()).profil; } catch { /* essai suivant */ }
   }
   throw new Error("Profil de jeu introuvable");

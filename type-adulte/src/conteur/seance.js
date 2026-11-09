@@ -1,5 +1,5 @@
 // Séance de jeu (mode Jouer) : l'état gardé sur le téléphone pendant la partie, les dés, les fins. Logique pure, testée dans Node.
-import { coeursMax } from "./potions.js";
+import { coeursMax } from "./potions.js?v=0.16.1";
 
 /** Réussite au 2d6 : au moins un dé au seuil du profil (5 par défaut : 5 ou 6), ou un double. */
 export const estReussite = (a, b, seuil = 5) => a >= seuil || b >= seuil || a === b;

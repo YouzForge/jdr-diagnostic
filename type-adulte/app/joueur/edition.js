@@ -1,11 +1,11 @@
 // Briques d'écriture de l'application « joueur » (tranche 2) : confirmation, exécution d'une écriture avec message d'erreur, formulaires de note
 // et de dossier, étiquettes modifiables. Aucune commande d'écriture n'est dessinée si `ctx.donnees.peutEcrire` est faux (interrupteur fermé, ou MJ qui voit comme un joueur).
 // RÈGLE du moteur : jamais de innerHTML ; tout est construit avec le DOM.
-import { h, icon, feuille, message, fermerFeuilles } from "./ui.js";
-import { messageErreur } from "../../src/joueur/erreurs.js";
-import { verifierEtiquette, etiquettesUtilisees, MAX_TITRE, MAX_CORPS_NOTE, MAX_NOTE_RENCONTRE, MAX_BOURSE, MAX_ETIQUETTE } from "../../src/joueur/ecriture.js";
-import { verifierNomDossier } from "../../src/depot/depot.js";
-import { EcritureInvalide } from "../../src/ecriture/fiche.js";
+import { h, icon, feuille, message, fermerFeuilles } from "./ui.js?v=0.16.1";
+import { messageErreur } from "../../src/joueur/erreurs.js?v=0.16.1";
+import { verifierEtiquette, etiquettesUtilisees, MAX_TITRE, MAX_CORPS_NOTE, MAX_NOTE_RENCONTRE, MAX_BOURSE, MAX_ETIQUETTE } from "../../src/joueur/ecriture.js?v=0.16.1";
+import { verifierNomDossier } from "../../src/depot/depot.js?v=0.16.1";
+import { EcritureInvalide } from "../../src/ecriture/fiche.js?v=0.16.1";
 
 /** « Recharger » : ferme les fenêtres (leur texte non enregistré est gardé comme brouillon) et relit l'écran. */
 const boutonRecharger = ctx => h("button", { class: "jr-bouton", type: "button", onclick: () => { fermerFeuilles(); ctx.reafficher(); } }, icon("clock", 18), "Recharger");

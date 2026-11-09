@@ -1,9 +1,9 @@
 // Écrans du MJ (D47, lecture seule) : l'accueil avec la liste des lieux et la session de jeu à venir, la lecture d'un document du coffre, le tableau de bord des joueurs et leurs notes MJ.
 // Même charte que les écrans du joueur : bandeau dégradé, panneau qui monte, onglets rouges (orange = écran actif), cartes sombres à bord arrondi, titres en Cinzel.
 // Pensés pour l'ordinateur (deux colonnes, large) et lisibles sur téléphone (une colonne). Rien ne s'écrit ici.
-import { parseDoc, norm } from "../../src/md/doc.js";
-import { ETATS_LIEU, STATUTS_SESSION, filtrerLieux, compterEtats } from "../../src/mj/accueil.js";
-import { h, icon, message, rendreMarkdown, feuille, boiteImage } from "./ui.js";
+import { parseDoc, norm } from "../../src/md/doc.js?v=0.16.1";
+import { ETATS_LIEU, STATUTS_SESSION, filtrerLieux, compterEtats } from "../../src/mj/accueil.js?v=0.16.1";
+import { h, icon, message, rendreMarkdown, feuille, boiteImage } from "./ui.js?v=0.16.1";
 
 const enc = encodeURIComponent;
 const COPIE_ANCIENNE = "Copie enregistrée sur cet appareil : la connexion ne répond pas.";

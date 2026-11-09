@@ -2,18 +2,18 @@
 // Lancée par app.js quand profil.application === "joueur" et que la session est prête (connexion, dossier relié).
 // Lecture partout ; l'écriture (tranche 2 : étiquettes, notes, sac, points de vie, bourse) n'existe que pour un JOUEUR et seulement si l'interrupteur `ecriture` du JDR est ouvert.
 // Le MJ qui « voit comme » un joueur ne peut rien modifier.
-import { creerDonneesJoueur } from "../../src/joueur/donnees.js";
-import { nature, issue } from "../../src/joueur/geste.js";
-import { reglesD100 } from "../../src/joueur/d100.js";
-import { h, icon, attente, message, urlImage, viderImages, feuille, feuilleOuverte } from "./ui.js";
-import { ouvrirJet } from "./jet.js";
-import { ecranFiche, ecranCompetences } from "./ecrans_fiche.js";
-import { ecranSacDossiers, ecranSacTout, ecranSacDossier } from "./ecrans_sac.js";
-import { ecranSavoirs, ecranQuetes, ecranNotes, ecranJournal, ecranRencontres, ecranRencontre } from "./ecrans_savoirs.js";
-import { ecranCarte } from "./ecrans_carte.js";
-import { ecranRecherche } from "./ecrans_recherche.js";
-import { ecranAccueilMJ, ecranDocumentMJ, ecranJoueursMJ, ecranJoueurMJ } from "./ecrans_mj.js";
-import { creerStockageImages } from "./stockage_images.js";
+import { creerDonneesJoueur } from "../../src/joueur/donnees.js?v=0.16.1";
+import { nature, issue } from "../../src/joueur/geste.js?v=0.16.1";
+import { reglesD100 } from "../../src/joueur/d100.js?v=0.16.1";
+import { h, icon, attente, message, urlImage, viderImages, feuille, feuilleOuverte } from "./ui.js?v=0.16.1";
+import { ouvrirJet } from "./jet.js?v=0.16.1";
+import { ecranFiche, ecranCompetences } from "./ecrans_fiche.js?v=0.16.1";
+import { ecranSacDossiers, ecranSacTout, ecranSacDossier } from "./ecrans_sac.js?v=0.16.1";
+import { ecranSavoirs, ecranQuetes, ecranNotes, ecranJournal, ecranRencontres, ecranRencontre } from "./ecrans_savoirs.js?v=0.16.1";
+import { ecranCarte } from "./ecrans_carte.js?v=0.16.1";
+import { ecranRecherche } from "./ecrans_recherche.js?v=0.16.1";
+import { ecranAccueilMJ, ecranDocumentMJ, ecranJoueursMJ, ecranJoueurMJ } from "./ecrans_mj.js?v=0.16.1";
+import { creerStockageImages } from "./stockage_images.js?v=0.16.1";
 
 const dec = decodeURIComponent;
 const FRAICHEUR_MS = 60_000;   // une lecture est réutilisée une minute en mémoire de page ; « Actualiser » (menu du nom) et le retour au premier plan la rafraîchissent
@@ -61,7 +61,7 @@ const ROUTES_MJ = [
 
 export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur, surErreur, ecriture = false }) {
   document.body.classList.add("joueur");
-  if (!document.getElementById("css-joueur")) document.head.append(h("link", { id: "css-joueur", rel: "stylesheet", href: "./joueur/joueur.css" }));
+  if (!document.getElementById("css-joueur")) document.head.append(h("link", { id: "css-joueur", rel: "stylesheet", href: "./joueur/joueur.css?v=0.16.1" }));
   let themeMeta = document.querySelector('meta[name="theme-color"]');
   if (!themeMeta) { themeMeta = h("meta", { name: "theme-color", content: "#1d1b1a" }); document.head.append(themeMeta); } else themeMeta.setAttribute("content", "#1d1b1a");
   const racine = document.getElementById("app-joueur") || document.body.appendChild(h("div", { id: "app-joueur" }));

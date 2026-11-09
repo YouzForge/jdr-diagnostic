@@ -1,19 +1,19 @@
 // Mode parent (celui qui raconte l'histoire du soir) : Ce soir, Histoires, Monde, Notes, listes et fiches complètes, lieux et objets, compagnons.
 // Le parent voit tout (notes du MJ comprises) ; l'enfant, lui, n'a que ses écrans (ecrans_enfant.js).
-import { h, icon, hearts, disc, parler, rendreMarkdown } from "./ui.js";
-import { boitePhoto } from "./photo.js";
-import { banniereHorsLigne } from "./banniere.js";
-import { carteEtat, carte as ecranCarte } from "./ecrans_enfant.js";
-import { ecranPhotos } from "./ecrans_photos.js";
-import { ecranNotes } from "./ecrans_notes.js";
-import { ecranFormulaire } from "./ecrans_formulaire.js";
-import { ecranJouer, ecranRecap, partieEnCours } from "./ecrans_jouer.js";
-import { aspectObjet } from "../../src/conteur/objets.js";
-import { controleHistoire } from "../../src/conteur/controle.js";
-import { lireEtapes } from "../../src/conteur/etapes.js";
-import { apparitions, platNom } from "../../src/conteur/liens.js";
-import { sections, parseDoc } from "../../src/md/doc.js";
-import { pool } from "../../src/graph/pool.js";
+import { h, icon, hearts, disc, parler, rendreMarkdown } from "./ui.js?v=0.16.1";
+import { boitePhoto } from "./photo.js?v=0.16.1";
+import { banniereHorsLigne } from "./banniere.js?v=0.16.1";
+import { carteEtat, carte as ecranCarte } from "./ecrans_enfant.js?v=0.16.1";
+import { ecranPhotos } from "./ecrans_photos.js?v=0.16.1";
+import { ecranNotes } from "./ecrans_notes.js?v=0.16.1";
+import { ecranFormulaire } from "./ecrans_formulaire.js?v=0.16.1";
+import { ecranJouer, ecranRecap, partieEnCours } from "./ecrans_jouer.js?v=0.16.1";
+import { aspectObjet } from "../../src/conteur/objets.js?v=0.16.1";
+import { controleHistoire } from "../../src/conteur/controle.js?v=0.16.1";
+import { lireEtapes } from "../../src/conteur/etapes.js?v=0.16.1";
+import { apparitions, platNom } from "../../src/conteur/liens.js?v=0.16.1";
+import { sections, parseDoc } from "../../src/md/doc.js?v=0.16.1";
+import { pool } from "../../src/graph/pool.js?v=0.16.1";
 
 const lien = (chemin, classe, ...enfants) => h("a", { class: classe, href: "#" + chemin }, ...enfants);
 const plus = chemin => lien(chemin, "iconbtn plus", icon("plus", 26, "#fff", 3));

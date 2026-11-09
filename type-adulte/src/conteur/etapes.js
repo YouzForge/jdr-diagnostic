@@ -1,6 +1,6 @@
 // Lecture des histoires du « conteur » (JDR pour enfant) : étapes de jeu, texte brut, sections de règles.
 // Logique pure (aucun navigateur) : tout est testé dans Node.
-import { sections } from "../md/doc.js";
+import { sections } from "../md/doc.js?v=0.16.1";
 
 /** Texte lu à voix haute : sans marques Markdown. */
 export function plain(md) {

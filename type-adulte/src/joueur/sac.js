@@ -1,5 +1,5 @@
 // Sac du joueur : regroupement par dossier ou session, tri, filtre d'ancienneté (D37). Logique pure.
-import { norm } from "../md/doc.js";
+import { norm } from "../md/doc.js?v=0.16.1";
 
 export const NON_CLASSE = "Non classé";
 const dossierDe = o => o.dossier || NON_CLASSE;
