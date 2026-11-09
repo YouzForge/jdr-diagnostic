@@ -2,7 +2,7 @@
 // changement de téléphone, une vérification qui échoue une fois…) et le joueur devait alors recoller ses deux liens. Ici, les identifiants des
 // dossiers sont aussi retenus dans le dossier d'application du joueur, dans SON OneDrive : il les retrouve sur n'importe quel appareil.
 // Rien de secret : des identifiants (jamais un lien), inutiles sans le partage ; et chaque dossier est revérifié (marqueur) à chaque démarrage.
-import { PSEUDO } from "./marqueur.js?v=0.16.1";
+import { PSEUDO } from "./marqueur.js?v=0.17.0";
 
 const ID = /^[A-Za-z0-9!_-]{1,200}$/;
 export const nomMemoire = jdrId => `racines_${jdrId}.json`;

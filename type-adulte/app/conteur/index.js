@@ -1,9 +1,9 @@
 // Application « conteur » (JDR pour enfant) : coque, routeur, mode enfant par défaut et mode parent derrière un appui long.
 // Lancée par app.js quand profil.application === "conteur" et que la session est prête (connexion, dossier relié).
-import { creerDonnees } from "../../src/conteur/donnees.js?v=0.16.1";
-import { h, icon, spinner } from "./ui.js?v=0.16.1";
-import * as E from "./ecrans_enfant.js?v=0.16.1";
-import * as P from "./ecrans_parent.js?v=0.16.1";
+import { creerDonnees } from "../../src/conteur/donnees.js?v=0.17.0";
+import { h, icon, spinner } from "./ui.js?v=0.17.0";
+import * as E from "./ecrans_enfant.js?v=0.17.0";
+import * as P from "./ecrans_parent.js?v=0.17.0";
 
 const dec = decodeURIComponent;
 
@@ -32,7 +32,7 @@ const ROUTES = [
 
 export function demarrerConteur({ profil, session, auth, ecriture, surErreur }) {
   document.body.classList.add("conteur");
-  if (!document.getElementById("css-conteur")) document.head.append(h("link", { id: "css-conteur", rel: "stylesheet", href: "./conteur/conteur.css?v=0.16.1" }));
+  if (!document.getElementById("css-conteur")) document.head.append(h("link", { id: "css-conteur", rel: "stylesheet", href: "./conteur/conteur.css?v=0.17.0" }));
   const racine = document.getElementById("app-conteur") || document.body.appendChild(h("div", { id: "app-conteur" }));
   const cle = k => `jdr:${profil.id}:${k}`;
   const memoire = {

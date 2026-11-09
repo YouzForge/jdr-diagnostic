@@ -4,15 +4,15 @@
 // Deux façons d'ouvrir : un JOUEUR lit son dossier (racine « joueur ») et la table ; le MJ, pour « voir comme un joueur », lit
 // `Joueurs/<pseudo>` dans son propre OneDrive. Dans les deux cas l'application ne demande que des chemins relatifs au dossier du joueur.
 // Le MJ peut aussi ouvrir SANS joueur : il n'a alors que les écrans du MJ (lieux, sessions de jeu, documents du coffre), tous lus avec la même copie d'abord.
-import { pool } from "../graph/pool.js?v=0.16.1";
-import { FicheExiste, ConflitEcriture } from "../graph/client.js?v=0.16.1";
-import { AccesRefuse, AccesRetire } from "../depot/depot.js?v=0.16.1";
-import { lireFiche } from "./fiche.js?v=0.16.1";
-import { lireElement, lireObjet, lireRencontre, lireEtiquettes, lireRecit, cleCible, clesDe } from "./cartes.js?v=0.16.1";
-import { entreeIndex } from "./recherche.js?v=0.16.1";
-import { poserEtiquettes, texteNote, modifierNote, noteRencontre, changerBourse, changerPV, nomDeFichierNote } from "./ecriture.js?v=0.16.1";
-import { norm } from "../md/doc.js?v=0.16.1";
-import { lireLieuMJ, lireSessionMJ, trierParNumero, trierSessions, sessionAVenir } from "../mj/accueil.js?v=0.16.1";
+import { pool } from "../graph/pool.js?v=0.17.0";
+import { FicheExiste, ConflitEcriture } from "../graph/client.js?v=0.17.0";
+import { AccesRefuse, AccesRetire } from "../depot/depot.js?v=0.17.0";
+import { lireFiche } from "./fiche.js?v=0.17.0";
+import { lireElement, lireObjet, lireRencontre, lireEtiquettes, lireRecit, cleCible, clesDe } from "./cartes.js?v=0.17.0";
+import { entreeIndex } from "./recherche.js?v=0.17.0";
+import { poserEtiquettes, texteNote, modifierNote, noteRencontre, changerBourse, changerPV, nomDeFichierNote } from "./ecriture.js?v=0.17.0";
+import { norm } from "../md/doc.js?v=0.17.0";
+import { lireLieuMJ, lireSessionMJ, trierParNumero, trierSessions, sessionAVenir } from "../mj/accueil.js?v=0.17.0";
 
 const IMAGE = /\.(jpe?g|png|webp)$/i;
 const MARKDOWN = /^(?!00_|LISEZMOI).+\.md$/i;
@@ -165,8 +165,8 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
     if (!rel) return Promise.resolve({ n: 0, perime: false });
     const chemin = dansJoueur(rel);
     return avecCopie("n:" + chemin,
-      () => { const ls = depot.listerCopie(chemin); return ls ? { n: noms(ls).length, perime: horsLigne } : null; },
-      async () => { const ls = await lister(chemin); return { n: noms(ls.fichiers).length, perime: ls.perime }; });
+      () => { const ls = depot.listerCopie(chemin); if (!ls) return null; const nn = noms(ls); return { n: nn.length, noms: nn, perime: horsLigne }; },
+      async () => { const ls = await lister(chemin); const nn = noms(ls.fichiers); return { n: nn.length, noms: nn, perime: ls.perime }; });
   };
   /** Texte d'un fichier du coffre : la copie d'abord ; sinon la liste du dossier donne la version et le fichier n'est retéléchargé que si elle a changé. → { texte, perime } ; texte null = fichier disparu. */
   async function lireDocCoffre(d, fichier) {
@@ -238,16 +238,16 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
       const pseudos = sousDossiers(ls.fichiers).filter(n => NOM_DOSSIER.test(n));
       const vus = await pool(pseudos, p => enfant(p).apercu().catch(e => {
         if (estAuth(e) || e instanceof AccesRetire) throw e;
-        return { pseudo: p, fiche: null, comptes: { savoirs: 0, quetes: 0, rencontres: 0 }, erreur: true, perime: false };
+        return { pseudo: p, fiche: null, comptes: { savoirs: 0, quetes: 0, rencontres: 0 }, savoirs: null, erreur: true, perime: false };
       }), 4);
       return { joueurs: vus, perime: !!ls.perime || vus.some(v => v.perime), absent: !!ls.absent };
     }),
-    /** Aperçu d'un joueur (objet ouvert sur ce joueur) : sa fiche et le nombre de ses savoirs, quêtes et rencontres. */
+    /** Aperçu d'un joueur (objet ouvert sur ce joueur) : sa fiche, le nombre de ses savoirs, quêtes et rencontres, et les noms de fichiers de ses savoirs (pour la matrice « qui sait quoi »). */
     apercu: () => memoiser("apercu", async () => {
       reserveMJ();
       if (!pseudo) throw new AccesRefuse("Choisis d'abord un joueur à voir", "joueur_a_choisir");
       const [f, sv, qu, re] = await Promise.all([api.fiche(), compter(dossiers.savoirs), compter(dossiers.quetes), compter(dossiers.rencontres)]);
-      return { pseudo, fiche: f.fiche, comptes: { savoirs: sv.n, quetes: qu.n, rencontres: re.n }, erreur: false, perime: !!(f.perime || sv.perime || qu.perime || re.perime) };
+      return { pseudo, fiche: f.fiche, comptes: { savoirs: sv.n, quetes: qu.n, rencontres: re.n }, savoirs: sv.noms || [], erreur: false, perime: !!(f.perime || sv.perime || qu.perime || re.perime) };
     }),
     /** L'objet de données d'un joueur précis (lecture seule), pour les écrans du MJ : portrait, fiche… */
     pour(p) { reserveMJ(); if (!NOM_DOSSIER.test(String(p))) throw new AccesRefuse("Nom de joueur invalide", "nom_invalide"); return enfant(p); },

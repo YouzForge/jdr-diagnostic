@@ -3,7 +3,7 @@
 //   liens → marqueurs → liste → lecture du contenu → écriture chez soi → écriture refusée dans la table → parent et racine inaccessibles.
 // Il n'écrit que des fichiers « 00_diagnostic_… » dans le dossier du joueur et les supprime. Il n'affiche JAMAIS un lien, un jeton,
 // un identifiant ni un nom de dossier : le rapport peut être copié et envoyé tel quel.
-import { trouverRacines, verifierRacines } from "../racines/racines.js?v=0.16.1";
+import { trouverRacines, verifierRacines } from "../racines/racines.js?v=0.17.0";
 
 const MAX_FICHIERS = 300;
 const estAuth = e => e && (e.status === 401 || e.auth);

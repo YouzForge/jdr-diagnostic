@@ -1,9 +1,9 @@
 // Notes du parent : une seule page pour les notes et les idées. Chaque entrée est rangée sous « À traiter » ; un traitement automatique
 // (tâche planifiée, deux fois par jour) la déplace sous « Traité » une fois exploitée.
-import { h, icon, rendreMarkdown } from "./ui.js?v=0.16.1";
-import { banniereHorsLigne } from "./banniere.js?v=0.16.1";
-import { ajouterAInbox, entreeInbox } from "../../src/conteur/inbox.js?v=0.16.1";
-import { messageEcriture } from "../../src/app/formulaire.js?v=0.16.1";
+import { h, icon, rendreMarkdown } from "./ui.js?v=0.17.0";
+import { banniereHorsLigne } from "./banniere.js?v=0.17.0";
+import { ajouterAInbox, entreeInbox } from "../../src/conteur/inbox.js?v=0.17.0";
+import { messageEcriture } from "../../src/app/formulaire.js?v=0.17.0";
 
 const TYPES = [["histoire", "Une histoire"], ["univers", "L'univers"], ["", "Je ne sais pas"]];
 

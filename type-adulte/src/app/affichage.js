@@ -6,8 +6,8 @@
 //  - pour un joueur, les champs et sections « masqués » du profil sont retirés, et dans la table seules les fiches « publiables » sont montrées ;
 //  - une fiche sans visibilité claire est SECRÈTE (appliqué par `lireVisibilite`), donc cachée à un joueur dans la table ;
 //  - rien n'est rendu comme du HTML : on produit des blocs de texte (voir markdown.js).
-import { sections } from "../md/doc.js?v=0.16.1";
-import { blocsMarkdown } from "./markdown.js?v=0.16.1";
+import { sections } from "../md/doc.js?v=0.17.0";
+import { blocsMarkdown } from "./markdown.js?v=0.17.0";
 
 /** Champs techniques du tampon de récap (D18) : jamais affichés. */
 export const CHAMPS_TECHNIQUES = Object.freeze(["source", "source_octets", "traite_le", "traitement"]);

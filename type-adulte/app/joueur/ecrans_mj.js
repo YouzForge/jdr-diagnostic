@@ -1,9 +1,10 @@
-// Écrans du MJ (D47, lecture seule) : l'accueil avec la liste des lieux et la session de jeu à venir, la lecture d'un document du coffre, le tableau de bord des joueurs et leurs notes MJ.
+// Écrans du MJ (D47, lecture seule) : l'accueil avec la liste des lieux et la session de jeu à venir, la lecture d'un document du coffre, le tableau de bord des joueurs et leurs notes MJ, la matrice « qui sait quoi ».
 // Même charte que les écrans du joueur : bandeau dégradé, panneau qui monte, onglets rouges (orange = écran actif), cartes sombres à bord arrondi, titres en Cinzel.
 // Pensés pour l'ordinateur (deux colonnes, large) et lisibles sur téléphone (une colonne). Rien ne s'écrit ici.
-import { parseDoc, norm } from "../../src/md/doc.js?v=0.16.1";
-import { ETATS_LIEU, STATUTS_SESSION, filtrerLieux, compterEtats } from "../../src/mj/accueil.js?v=0.16.1";
-import { h, icon, message, rendreMarkdown, feuille, boiteImage } from "./ui.js?v=0.16.1";
+import { parseDoc, norm } from "../../src/md/doc.js?v=0.17.0";
+import { ETATS_LIEU, STATUTS_SESSION, filtrerLieux, compterEtats } from "../../src/mj/accueil.js?v=0.17.0";
+import { construireMatrice, filtrerSavoirs, compterFiltres, FILTRES_SAVOIRS } from "../../src/mj/matrice.js?v=0.17.0";
+import { h, icon, message, rendreMarkdown, feuille, boiteImage } from "./ui.js?v=0.17.0";
 
 const enc = encodeURIComponent;
 const COPIE_ANCIENNE = "Copie enregistrée sur cet appareil : la connexion ne répond pas.";
@@ -27,7 +28,7 @@ const chip = texte => h("span", { class: "jr-puce" }, texte);
 
 /**
  * Cadre commun des écrans du MJ : bandeau (nom du JDR, actualiser, menu), panneau avec onglets, puis le contenu.
- * `actif` : "accueil" | "joueurs". Le panneau « monte » sur le bandeau comme sur l'application du joueur.
+ * `actif` : "accueil" | "joueurs" | "savoirs". Le panneau « monte » sur le bandeau comme sur l'application du joueur.
  */
 export function cadreMJ(ctx, { actif = "accueil", titre } = {}, ...contenu) {
   const a = ctx.actions;
@@ -49,6 +50,7 @@ export function cadreMJ(ctx, { actif = "accueil", titre } = {}, ...contenu) {
       h("nav", { class: "mj-onglets", "aria-label": "Écrans du MJ" },
         onglet("accueil", "book", "Accueil", { href: "#/mj" }),
         onglet("joueurs", "friends", "Joueurs", { href: "#/mj/joueurs" }),
+        onglet("savoirs", "bulb", "Savoirs", { href: "#/mj/savoirs" }),
         a.versMoteur ? onglet("moteur", "scroll", "Listes", { onclick: () => a.versMoteur() }) : null),
       h("div", { class: "mj-contenu" }, contenu)));
 }
@@ -233,5 +235,62 @@ export async function ecranJoueurMJ(ctx, pseudo) {
     (secrets.perime || fiche.perime) ? message(COPIE_ANCIENNE, "alerte") : null,
     bloc("Secrets du MJ", secrets, "Secrets_MJ.md", true),
     bloc("Fiche complète (copie du coffre)", fiche, "Fiche_complete.md", false));
+  return { page };
+}
+
+/* ------------------------------------------------------------------ Savoirs : qui sait quoi (tranche 2b) */
+const CASES = {
+  oui: { texte: "Connaît ce savoir", signe: () => icon("check", 18) },
+  non: { texte: "Ne le connaît pas", signe: () => h("span", { class: "mj-case-tiret", "aria-hidden": "true" }, "–") },
+  inconnu: { texte: "Dossier illisible : on ne sait pas", signe: () => h("span", { class: "mj-case-tiret", "aria-hidden": "true" }, "?") }
+};
+
+/** Matrice savoirs × joueurs : une ligne par savoir, une colonne par joueur, une pastille « connu » par case. Lecture seule, calculée sur les listes de dossiers. */
+export async function ecranSavoirsMJ(ctx) {
+  const r = await ctx.donnees.joueurs();
+  const m = construireMatrice(r.joueurs.map(j => ({ pseudo: j.pseudo, fiche: j.fiche, savoirs: j.savoirs })));
+  const filtre = ctx.etat.matriceMJ || (ctx.etat.matriceMJ = { texte: "", filtre: "" });
+  const c = compterFiltres(m.lignes);
+  const illisibles = m.joueurs.filter(x => !x.lisible);
+  const corps = h("tbody");
+  const compte = h("span", { class: "jr-meta mj-compte" });
+  const pastilles = h("div", { class: "jr-puces filtre mj-filtres", role: "group", "aria-label": "Filtrer les savoirs" });
+  const bascule = cle => { filtre.filtre = filtre.filtre === cle ? "" : cle; dessiner(); };
+  const puce = (cle, libelle, n) => h("button", { class: "jr-pastille petite" + (filtre.filtre === cle ? " on" : "") + (!n && cle ? " zero" : ""), type: "button", "aria-pressed": String(filtre.filtre === cle), onclick: () => bascule(cle) }, libelle, h("span", { class: "mj-n" }, String(n)));
+  const ligne = l => h("tr", { class: l.tous ? "tous" : "" },
+    h("th", { scope: "row", class: "mj-savoir", title: Object.values(l.fichiers)[0] }, l.titre),
+    ...m.joueurs.map(x => {
+      const etat = !x.lisible ? "inconnu" : l.connus.includes(x.pseudo) ? "oui" : "non";
+      return h("td", { class: "mj-case " + etat, title: `${x.nom} : ${CASES[etat].texte}`, "aria-label": `${x.nom} : ${CASES[etat].texte}` }, CASES[etat].signe());
+    }),
+    h("td", { class: "mj-total" + (l.tous ? " tous" : "") }, `${l.n}/${l.sur}`));
+  const dessiner = () => {
+    const vus = filtrerSavoirs(m.lignes, { filtre: filtre.filtre, texte: filtre.texte });
+    corps.replaceChildren(...vus.map(ligne));
+    if (!vus.length) corps.append(h("tr", null, h("td", { class: "mj-aucun", colspan: String(m.joueurs.length + 2) }, h("p", { class: "jr-vide" }, "Aucun savoir ne correspond à ce filtre."))));
+    compte.textContent = vus.length === m.lignes.length ? `${m.lignes.length} savoir${m.lignes.length > 1 ? "s" : ""}` : `${vus.length} sur ${m.lignes.length}`;
+    pastilles.replaceChildren(
+      h("button", { class: "jr-pastille petite" + (!filtre.filtre ? " on" : ""), type: "button", "aria-pressed": String(!filtre.filtre), onclick: () => { filtre.filtre = ""; dessiner(); } }, "Tous", h("span", { class: "mj-n" }, String(c.total))),
+      ...FILTRES_SAVOIRS.map(f => puce(f.cle, f.libelle, c[f.cle])));
+  };
+  const champ = h("input", { class: "mj-recherche-champ", type: "search", placeholder: "Chercher un savoir…", value: filtre.texte, "aria-label": "Chercher un savoir", oninput: () => { filtre.texte = champ.value; dessiner(); } });
+  const tableau = h("div", { class: "mj-matrice-defile", tabindex: "0", role: "region", "aria-label": "Qui sait quoi" },
+    h("table", { class: "mj-matrice" },
+      h("thead", null, h("tr", null,
+        h("th", { scope: "col", class: "mj-savoir" }, "Savoir"),
+        ...m.joueurs.map(x => h("th", { scope: "col", class: "mj-joueur-col", title: x.nom }, h("span", { class: "mj-joueur-col-nom" }, x.nom), h("span", { class: "mj-joueur-col-n" }, x.lisible ? String(x.total) : "?"))),
+        h("th", { scope: "col", class: "mj-total" }, "Total"))),
+      corps));
+  const contenu = [
+    h("div", { class: "mj-doc-tete" }, h("h2", { class: "mj-doc-titre" }, "Qui sait quoi"),
+      h("p", { class: "jr-meta" }, "Les savoirs de chaque joueur, d'après son dossier. Deux joueurs ont le même savoir quand leurs fichiers portent le même nom. Lecture seule.")),
+    r.perime ? message(COPIE_ANCIENNE, "alerte") : null,
+    illisibles.length && m.joueurs.length ? message(`Dossier illisible pour ${illisibles.map(x => x.nom).join(", ")} : ${illisibles.length > 1 ? "leurs cases sont" : "ses cases sont"} marquées « ? » et ne comptent pas comme « ignoré ».`, "alerte") : null,
+    r.absent ? message(`Le dossier « ${(ctx.profil.securite || {}).joueurs || "Joueurs"} » n'existe pas encore : crée-le avec le générateur.`, "info")
+      : !m.joueurs.length ? message("Aucun dossier de joueur pour l'instant.", "info")
+        : !m.lignes.length ? message("Aucun joueur n'a encore de savoir dans son dossier « Savoirs ».", "info")
+          : h("section", { class: "mj-matrice-bloc" }, h("div", { class: "mj-lieux-tete" }, h("h2", null, "Savoirs"), compte), h("label", { class: "mj-recherche" }, icon("search", 20), champ), pastilles, tableau)];
+  const page = cadreMJ(ctx, { actif: "savoirs" }, ...contenu.filter(Boolean));
+  if (m.joueurs.length && m.lignes.length && !r.absent) dessiner();
   return { page };
 }

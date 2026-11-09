@@ -1,7 +1,7 @@
 // Branchement de `creerAuth` sur le vrai navigateur (MSAL.js chargé par la page, localStorage, cookies).
 // Seule partie de la connexion qui ne se teste pas sans navigateur : elle reste volontairement courte.
-import { creerAuth, validerConfigAuth } from "./auth.js?v=0.16.1";
-import { creerCache, creerStockageNavigateur } from "../depot/cache.js?v=0.16.1";
+import { creerAuth, validerConfigAuth } from "./auth.js?v=0.17.0";
+import { creerCache, creerStockageNavigateur } from "../depot/cache.js?v=0.17.0";
 
 /* POURQUOI TANT DE RECONNEXIONS SUR iPHONE (relevé sur Petite Feuille) : MSAL range sa clé de chiffrement dans un cookie « de session »
    qui disparaît quand l'application est fermée ; les jetons deviennent illisibles. On donne à ce cookie une vraie durée (30 jours) :

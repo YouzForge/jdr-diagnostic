@@ -1,11 +1,11 @@
 // Écrans de l'enfant : accueil, journal, bourse, objets, lieux et carte, compagnons, monstres, amis, outils (photo).
 // Chaque écran renvoie { title, back, nav, node } ; le routeur (index.js) les affiche. Aucune fiche n'est montrée avec ses notes de MJ (vueEnfant).
-import { h, icon, hearts, disc, spinner, appuiLong, anneauIcone, parler, caseObjet, caseVide, rendreMarkdown } from "./ui.js?v=0.16.1";
-import { boitePhoto, envoyerPhoto } from "./photo.js?v=0.16.1";
-import { banniereHorsLigne } from "./banniere.js?v=0.16.1";
-import { vueEnfant } from "../../src/conteur/heros.js?v=0.16.1";
-import { plain } from "../../src/conteur/etapes.js?v=0.16.1";
-import { aspectObjet, encreSur } from "../../src/conteur/objets.js?v=0.16.1";
+import { h, icon, hearts, disc, spinner, appuiLong, anneauIcone, parler, caseObjet, caseVide, rendreMarkdown } from "./ui.js?v=0.17.0";
+import { boitePhoto, envoyerPhoto } from "./photo.js?v=0.17.0";
+import { banniereHorsLigne } from "./banniere.js?v=0.17.0";
+import { vueEnfant } from "../../src/conteur/heros.js?v=0.17.0";
+import { plain } from "../../src/conteur/etapes.js?v=0.17.0";
+import { aspectObjet, encreSur } from "../../src/conteur/objets.js?v=0.17.0";
 
 const lien = (chemin, classe, ...enfants) => h("a", { class: classe, href: "#" + chemin }, ...enfants);
 const aller = chemin => { location.hash = "#" + chemin; };

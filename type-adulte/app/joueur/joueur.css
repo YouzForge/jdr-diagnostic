@@ -394,3 +394,25 @@ body.joueur .jr-ajout .jr-saisie{min-height:44px}
 .mj-bloc-doc .mj-corps{padding-bottom:16px}
 .mj-bloc-doc summary h2{font-size:17px}
 .mj-bloc-doc .jr-msg{margin-bottom:16px}
+
+/* Matrice « qui sait quoi » (D51) : une ligne par savoir, une colonne par joueur ; la colonne des savoirs reste visible au défilement horizontal. */
+.mj-matrice-bloc{display:flex;flex-direction:column;gap:12px}
+.mj-matrice-defile{overflow:auto;max-height:70vh;border:1px solid var(--trait);border-radius:14px;background:var(--creux);-webkit-overflow-scrolling:touch}
+.mj-matrice-defile:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.mj-matrice{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
+.mj-matrice th,.mj-matrice td{padding:8px 10px;border-bottom:1px solid var(--trait);text-align:center;vertical-align:middle}
+.mj-matrice thead th{position:sticky;top:0;z-index:2;background:var(--panneau);font-weight:600;border-bottom:2px solid var(--trait)}
+.mj-matrice .mj-savoir{position:sticky;left:0;z-index:1;text-align:left;min-width:150px;max-width:260px;background:var(--panneau);font-weight:600;border-right:1px solid var(--trait);overflow-wrap:anywhere}
+.mj-matrice thead .mj-savoir{z-index:3}
+.mj-matrice tbody tr:last-child th,.mj-matrice tbody tr:last-child td{border-bottom:0}
+.mj-joueur-col{min-width:76px;max-width:120px}
+.mj-joueur-col-nom{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mj-joueur-col-n{display:block;font-size:12px;font-weight:400;color:var(--voile)}
+.mj-case svg{color:var(--vert-vif);display:block;margin:0 auto}
+.mj-case.non,.mj-case.inconnu{color:var(--voile)}
+.mj-case.inconnu{background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(179,167,152,.12) 6px 12px)}
+.mj-case-tiret{font-size:16px}
+.mj-total{white-space:nowrap;color:var(--voile);font-variant-numeric:tabular-nums}
+.mj-total.tous{color:var(--vert-vif);font-weight:600}
+.mj-matrice tr.tous .mj-savoir{box-shadow:inset 3px 0 0 var(--vert)}
+@media (min-width:700px){.mj-matrice th,.mj-matrice td{padding:10px 14px}.mj-joueur-col{min-width:110px}}

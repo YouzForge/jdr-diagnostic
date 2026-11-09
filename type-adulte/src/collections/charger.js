@@ -1,6 +1,6 @@
 // Chargement des fiches d'une collection du profil. Même code pour tous les JDR : tout vient du profil.
-import { parseDoc, humanize, lireVisibilite, origineVisibilite } from "../md/doc.js?v=0.16.1";
-import { pool } from "../graph/pool.js?v=0.16.1";
+import { parseDoc, humanize, lireVisibilite, origineVisibilite } from "../md/doc.js?v=0.17.0";
+import { pool } from "../graph/pool.js?v=0.17.0";
 
 /** Fichiers qu'une collection ne présente jamais : modèles (« 00_… ») et fichiers LISEZMOI. */
 const EXCLUS = /^(00_|LISEZMOI)/i;

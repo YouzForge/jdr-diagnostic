@@ -1,8 +1,8 @@
 // Fiche de personnage de l'application « joueur » : lecture d'un fichier « Fiche.md » (en-tête de champs + tableaux de compétences).
 // Aucun nom de statistique ni de classe en dur : les caractéristiques et les classes viennent du profil (module « d100 »). Sans DOM.
-import { parseDoc, norm, intOf } from "../md/doc.js?v=0.16.1";
-import { lignesDeSection } from "./tableaux.js?v=0.16.1";
-import { reglesD100, afficherCaracteristique } from "./d100.js?v=0.16.1";
+import { parseDoc, norm, intOf } from "../md/doc.js?v=0.17.0";
+import { lignesDeSection } from "./tableaux.js?v=0.17.0";
+import { reglesD100, afficherCaracteristique } from "./d100.js?v=0.17.0";
 
 export const SECTION_COMPETENCES = "Compétences";
 export const SECTION_SPECIALES = "Compétences spéciales";
