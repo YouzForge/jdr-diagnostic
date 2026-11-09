@@ -4,15 +4,15 @@
 // Deux façons d'ouvrir : un JOUEUR lit son dossier (racine « joueur ») et la table ; le MJ, pour « voir comme un joueur », lit
 // `Joueurs/<pseudo>` dans son propre OneDrive. Dans les deux cas l'application ne demande que des chemins relatifs au dossier du joueur.
 // Le MJ peut aussi ouvrir SANS joueur : il n'a alors que les écrans du MJ (lieux, sessions de jeu, documents du coffre), tous lus avec la même copie d'abord.
-import { pool } from "../graph/pool.js?v=0.17.0";
-import { FicheExiste, ConflitEcriture } from "../graph/client.js?v=0.17.0";
-import { AccesRefuse, AccesRetire } from "../depot/depot.js?v=0.17.0";
-import { lireFiche } from "./fiche.js?v=0.17.0";
-import { lireElement, lireObjet, lireRencontre, lireEtiquettes, lireRecit, cleCible, clesDe } from "./cartes.js?v=0.17.0";
-import { entreeIndex } from "./recherche.js?v=0.17.0";
-import { poserEtiquettes, texteNote, modifierNote, noteRencontre, changerBourse, changerPV, nomDeFichierNote } from "./ecriture.js?v=0.17.0";
-import { norm } from "../md/doc.js?v=0.17.0";
-import { lireLieuMJ, lireSessionMJ, trierParNumero, trierSessions, sessionAVenir } from "../mj/accueil.js?v=0.17.0";
+import { pool } from "../graph/pool.js?v=0.18.0";
+import { FicheExiste, ConflitEcriture } from "../graph/client.js?v=0.18.0";
+import { AccesRefuse, AccesRetire } from "../depot/depot.js?v=0.18.0";
+import { lireFiche } from "./fiche.js?v=0.18.0";
+import { lireElement, lireObjet, lireRencontre, lireEtiquettes, lireRecit, cleCible, clesDe } from "./cartes.js?v=0.18.0";
+import { entreeIndex } from "./recherche.js?v=0.18.0";
+import { poserEtiquettes, texteNote, modifierNote, noteRencontre, changerBourse, changerPV, nomDeFichierNote, ajouterCompetenceSpeciale, retirerCompetenceSpeciale } from "./ecriture.js?v=0.18.0";
+import { norm } from "../md/doc.js?v=0.18.0";
+import { lireLieuMJ, lireSessionMJ, trierParNumero, trierSessions, sessionAVenir } from "../mj/accueil.js?v=0.18.0";
 
 const IMAGE = /\.(jpe?g|png|webp)$/i;
 const MARKDOWN = /^(?!00_|LISEZMOI).+\.md$/i;
@@ -391,7 +391,9 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
     },
 
     /** Vrai seulement pour un joueur dans un JDR dont l'écriture est ouverte : l'interface masque les commandes d'écriture sinon. */
-    peutEcrire: role === "joueur" && ecriture === true
+    peutEcrire: role === "joueur" && ecriture === true,
+    /** Vrai pour le MJ dans un JDR dont l'écriture est ouverte : l'écran « Joueur » du MJ montre alors les commandes de compétences spéciales. */
+    peutEcrireMJ: role === "mj" && ecriture === true
   };
 
   // ---------------------------------------------------------------- Écriture (tranche 2)
@@ -401,6 +403,12 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
   const exigerEcriture = () => {
     if (role !== "joueur") refus("Le MJ voit comme un joueur sans écrire", "lecture_seule_mj");
     if (ecriture !== true) refus("L'écriture n'est pas activée pour ce JDR", "ecriture_desactivee");
+  };
+  /** Écritures du MJ : réservées au MJ, interrupteur ouvert, sur le dossier d'un joueur existant (jamais le modèle « _… »). Seule la fiche du joueur est touchée. */
+  const exigerEcritureMJ = p => {
+    if (role !== "mj") refus("Réservé au MJ", "reserve_mj");
+    if (ecriture !== true) refus("L'écriture n'est pas activée pour ce JDR", "ecriture_desactivee");
+    if (!NOM_DOSSIER.test(String(p))) refus("Nom de joueur invalide", "nom_invalide");
   };
   const reessayable = e => e instanceof FicheExiste || (e instanceof ConflitEcriture && e.raison !== "disparue");
   /** Relit `chemin` (absent = `null`), calcule le nouveau texte et l'écrit avec la version lue ; un seul nouvel essai si le fichier a changé entre-temps (le calcul repart du texte frais). */
@@ -488,6 +496,16 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
     },
 
     /** Dossiers du sac : un seul niveau sous « Inventaire ». */
+    /** Ajoute une compétence spéciale à la FICHE d'un joueur (`Joueurs/<pseudo>/Fiche.md`). La copie du coffre (`Fiche_complete.md`) n'est pas modifiée. `c` = { nom, liens?, total, note? } */
+    async ajouterCompetenceJoueur(p, c) {
+      exigerEcritureMJ(p);
+      try { return await surFichier(`${sec.joueurs || "Joueurs"}/${p}/${dossiers.fiche}`, t => ajouterCompetenceSpeciale(t, c)); } finally { api.invalider(); }
+    },
+    /** Retire une compétence spéciale (par son nom) de la fiche d'un joueur. */
+    async retirerCompetenceJoueur(p, nom) {
+      exigerEcritureMJ(p);
+      try { return await surFichier(`${sec.joueurs || "Joueurs"}/${p}/${dossiers.fiche}`, t => retirerCompetenceSpeciale(t, nom)); } finally { api.invalider(); }
+    },
     async creerDossierSac(nom) { exigerEcriture(); return depot.creerDossier(`${dossiers.inventaire}/${nom}`); },
     async renommerDossierSac(nom, nouveau) { exigerEcriture(); return depot.renommerDossier(`${dossiers.inventaire}/${nom}`, nouveau); },
     async supprimerDossierSac(nom) { exigerEcriture(); return depot.supprimerDossierVide(`${dossiers.inventaire}/${nom}`); },

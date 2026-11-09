@@ -3,8 +3,8 @@
 // et les métadonnées de modules (public, rôles). Retourne { erreurs, avertissements }.
 // Une erreur bloque ; un avertissement signale (ex. règle non définie).
 
-import { MODULES, ROLES, convientAuPublic } from "./modules.js?v=0.17.0";
-import { analyserType, TYPES_SIMPLES } from "./champs.js?v=0.17.0";
+import { MODULES, ROLES, convientAuPublic } from "./modules.js?v=0.18.0";
+import { analyserType, TYPES_SIMPLES } from "./champs.js?v=0.18.0";
 
 const PUBLICS_PROFIL = ["enfant", "adulte", "tous"];
 const MODES = ["unique", "separe"];

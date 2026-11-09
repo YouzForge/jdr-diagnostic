@@ -1,9 +1,9 @@
 // Onglet « Sac » : dossiers, vue « Tout » (tri, regroupement, ancienneté) et vue d'un dossier. Les dossiers sont ceux du dossier « Inventaire » du joueur.
 // Si le joueur peut écrire (tranche 2) : nouveau dossier, renommer, supprimer (vide seulement), bourse modifiable ; déplacer et retirer un objet se font depuis son détail.
-import { h, icon, message, pastille, choix, boiteImage } from "./ui.js?v=0.17.0";
-import { ouvrirElement } from "./detail.js?v=0.17.0";
-import { peut, formulaireDossier, formulaireBourse, confirmer, executer } from "./edition.js?v=0.17.0";
-import { trier, filtrer, regrouper, tuilesDossiers, libelleAnciennete, ORDRES, NON_CLASSE } from "../../src/joueur/sac.js?v=0.17.0";
+import { h, icon, message, pastille, choix, boiteImage } from "./ui.js?v=0.18.0";
+import { ouvrirElement } from "./detail.js?v=0.18.0";
+import { peut, formulaireDossier, formulaireBourse, confirmer, executer } from "./edition.js?v=0.18.0";
+import { trier, filtrer, regrouper, tuilesDossiers, libelleAnciennete, ORDRES, NON_CLASSE } from "../../src/joueur/sac.js?v=0.18.0";
 
 const perime = r => (r && r.perime ? message("Copie enregistrée sur ce téléphone : la connexion ne répond pas.", "alerte") : null);
 

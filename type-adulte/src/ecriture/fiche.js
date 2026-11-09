@@ -2,7 +2,7 @@
 // reste identique à l'octet près (autres champs, commentaires, ordre, fins de ligne, ligne manquante de l'ancien format…).
 // `parseDoc` lit avec perte (guillemets, nombres, lignes ignorées) : on ne réécrit donc JAMAIS un fichier à partir de ce qu'il a lu.
 // Sans DOM, sans réseau : fonctionne dans le navigateur et dans Node.
-import { norm } from "../md/doc.js?v=0.17.0";
+import { norm } from "../md/doc.js?v=0.18.0";
 
 export class EcritureInvalide extends Error {
   constructor(message, raison) { super(message); this.name = "EcritureInvalide"; this.raison = raison; }

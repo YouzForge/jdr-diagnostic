@@ -1,8 +1,9 @@
 // Textes écrits par le joueur (tranche 2) : étiquettes, notes, note de rencontre, points de vie, bourse. Sans DOM, sans réseau.
 // Tout passe par l'édition fidèle du moteur (`modifierFiche`, `creerFiche`) : seul ce qui est demandé change, le reste du fichier
 // reste identique à l'octet près. Une valeur refusée lève `EcritureInvalide` (jamais corrigée en silence).
-import { modifierFiche, creerFiche, verifierValeur, EcritureInvalide, nomFichier } from "../ecriture/fiche.js?v=0.17.0";
-import { norm } from "../md/doc.js?v=0.17.0";
+import { modifierFiche, creerFiche, verifierValeur, EcritureInvalide, nomFichier } from "../ecriture/fiche.js?v=0.18.0";
+import { norm, parseDoc, getSection } from "../md/doc.js?v=0.18.0";
+import { lireTableau } from "./tableaux.js?v=0.18.0";
 
 export const MAX_ETIQUETTE = 30;
 export const MAX_ETIQUETTES_PAR_ELEMENT = 12;
@@ -10,6 +11,10 @@ export const MAX_TITRE = 120;
 export const MAX_CORPS_NOTE = 20000;
 export const MAX_NOTE_RENCONTRE = 5000;
 export const MAX_BOURSE = 80;
+export const MAX_COMPETENCE_NOM = 60;
+export const MAX_COMPETENCE_LIENS = 40;
+export const MAX_COMPETENCE_NOTE = 200;
+export const MAX_COMPETENCE_TOTAL = 999;   // garde-fou technique, pas une règle de jeu : la règle (plafond d'une compétence) reste au MJ
 
 const refuser = (m, r) => { throw new EcritureInvalide(m, r); };
 
@@ -154,4 +159,86 @@ export function changerPV(texteFiche, pv, { max = null } = {}) {
   if (!Number.isInteger(pv) || pv < 0 || pv > 9999) refuser("Points de vie : entier de 0 à 9999", "pv_invalide");
   if (max != null && pv > max) refuser(`Points de vie : au plus ${max}`, "pv_au_dessus_du_max");
   return modifierFiche(texteFiche, { champs: { pv } });
+}
+
+// ---------------------------------------------------------------- Compétences spéciales (écrites par le MJ dans la fiche du joueur)
+const SECTION_SPECIALES = "Compétences spéciales";
+const ENTETE_SPECIALES = ["Compétence", "Liens", "Total", "Note"];
+const estSeparateurTab = l => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l);
+
+/** Une cellule de tableau : une seule ligne, sans « | » (il sépare les colonnes), sans caractère de contrôle. */
+function verifierCellule(v, nom, max, { obligatoire = false } = {}) {
+  if (typeof v !== "string") refuser(`${nom} : texte attendu`, "competence_type");
+  if (/[\u0000-\u001f\u007f]/.test(v)) refuser(`${nom} : une seule ligne, sans caractère de contrôle`, "competence_caractere");
+  if (v.includes("|")) refuser(`${nom} : le signe « | » est interdit`, "competence_barre");
+  const t = v.replace(/\s+/g, " ").trim();
+  if (obligatoire && !t) refuser(`${nom} : à remplir`, "competence_vide");
+  if (t.length > max) refuser(`${nom} trop long (${max} caractères au plus)`, "competence_longue");
+  if (/^#{1,6}(\s|$)/.test(t)) refuser(`${nom} : ne peut pas commencer par « # »`, "competence_titre");
+  return t;
+}
+
+/** Trouve le tableau de la section : { avant:[lignes], entete:[cellules brutes], tete:ligne, sep:ligne, lignes:[lignes brutes], apres:[lignes] } ou null. */
+function decouperSection(texteSection) {
+  const l = texteSection.split("\n");
+  for (let i = 0; i < l.length - 1; i++) {
+    if (!l[i].includes("|") || !estSeparateurTab(l[i + 1])) continue;
+    let j = i + 2;
+    while (j < l.length && l[j].includes("|") && l[j].trim() !== "") j++;
+    return { avant: l.slice(0, i), tete: l[i], sep: l[i + 1], lignes: l.slice(i + 2, j), apres: l.slice(j) };
+  }
+  return null;
+}
+const cellulesBrutes = ligne => {
+  let x = ligne.trim();
+  if (x.startsWith("|")) x = x.slice(1);
+  if (x.endsWith("|") && !x.endsWith("\\|")) x = x.slice(0, -1);
+  return x.split(/(?<!\\)\|/).map(c => c.trim());
+};
+const ligneTableau = cells => "| " + cells.join(" | ") + " |";
+const lireSection = texteFiche => getSection(parseDoc(texteFiche).body, SECTION_SPECIALES);
+const reecrire = (texteFiche, section) => modifierFiche(texteFiche, { sections: { [SECTION_SPECIALES]: section } });
+
+/**
+ * Ajoute une compétence spéciale dans la section « Compétences spéciales » d'une fiche (créée, avec son tableau, si elle manque).
+ * Le reste de la fiche ne bouge pas. Refusé si une compétence (ordinaire ou spéciale) porte déjà ce nom.
+ * @param {{nom:string, liens?:string, total:number, note?:string}} c — `total` : entier 0 à MAX_COMPETENCE_TOTAL
+ */
+export function ajouterCompetenceSpeciale(texteFiche, c = {}) {
+  const nom = verifierCelluleNom(c.nom);
+  const liens = verifierCellule(c.liens ?? "", "Liens", MAX_COMPETENCE_LIENS);
+  const note = verifierCellule(c.note ?? "", "Note", MAX_COMPETENCE_NOTE);
+  if (!Number.isInteger(c.total) || c.total < 0 || c.total > MAX_COMPETENCE_TOTAL) refuser(`Total : entier de 0 à ${MAX_COMPETENCE_TOTAL}`, "competence_total");
+  const corps = parseDoc(texteFiche).body;
+  for (const sec of ["Compétences", SECTION_SPECIALES]) {
+    const t = lireTableau(getSection(corps, sec));
+    if (t && t.lignes.some(r => norm(r.competence || "") === norm(nom))) refuser(`Une compétence « ${nom} » existe déjà dans cette fiche`, "competence_existe");
+  }
+  const section = getSection(corps, SECTION_SPECIALES);
+  const d = decouperSection(section);
+  if (!d) {
+    const base = section.trim();
+    const tab = [ligneTableau(ENTETE_SPECIALES), "|---|---|---|---|", ligneTableau([nom, liens, String(c.total), note])].join("\n");
+    return reecrire(texteFiche, base ? base + "\n\n" + tab : tab);
+  }
+  const cles = cellulesBrutes(d.tete).map(norm);
+  if (!cles.includes("competence") || !cles.includes("total")) refuser("Le tableau « Compétences spéciales » n'a pas les colonnes « Compétence » et « Total » : à corriger à la main", "tableau_inattendu");
+  const valeurs = { competence: nom, liens, total: String(c.total), note };
+  const ligne = ligneTableau(cles.map(k => valeurs[k] ?? ""));
+  return reecrire(texteFiche, [...d.avant, d.tete, d.sep, ...d.lignes, ligne, ...d.apres].join("\n"));
+}
+
+function verifierCelluleNom(v) { return verifierCellule(v, "Nom de la compétence", MAX_COMPETENCE_NOM, { obligatoire: true }); }
+
+/** Retire de « Compétences spéciales » la compétence de ce nom (comparaison sans accent ni casse). Refusé si elle n'y est pas ; jamais dans « Compétences ». */
+export function retirerCompetenceSpeciale(texteFiche, nom) {
+  const cible = norm(verifierCelluleNom(nom));
+  const d = decouperSection(lireSection(texteFiche));
+  if (!d) refuser(`Aucune compétence spéciale « ${nom} » dans cette fiche`, "competence_absente");
+  const cles = cellulesBrutes(d.tete).map(norm);
+  const k = cles.indexOf("competence");
+  if (k < 0) refuser("Le tableau « Compétences spéciales » n'a pas de colonne « Compétence » : à corriger à la main", "tableau_inattendu");
+  const restantes = d.lignes.filter(l => norm((cellulesBrutes(l)[k] || "").replace(/\\\|/g, "|")) !== cible);
+  if (restantes.length === d.lignes.length) refuser(`Aucune compétence spéciale « ${nom} » dans cette fiche`, "competence_absente");
+  return reecrire(texteFiche, [...d.avant, d.tete, d.sep, ...restantes, ...d.apres].join("\n"));
 }

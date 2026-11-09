@@ -4,7 +4,7 @@
 // Un lieu se range par son numéro (« 07a - Grimforge » : 07, puis 07a), tiré de l'en-tête `numero` ou, à défaut, du début du nom de fichier.
 // L'état d'un lieu (`etat`) est écrit par le MJ : « idée » (à peine esquissé), « à venir » (ou « en attente »), « en cours » (plusieurs séances), « joué ». Absent = non renseigné,
 // jamais deviné. Une session de jeu a un `statut` : « idée », « prête » ou « jouée » ; la « session à venir » est la première session « prête ».
-import { parseDoc, norm, intOf, humanize } from "../md/doc.js?v=0.17.0";
+import { parseDoc, norm, intOf, humanize } from "../md/doc.js?v=0.18.0";
 
 const t = v => (v == null ? "" : String(v).trim());
 

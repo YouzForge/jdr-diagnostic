@@ -1,8 +1,8 @@
 // Photos du dossier du JDR : à relier à une fiche, ou à supprimer (corbeille OneDrive, récupérable 93 jours).
-import { h, icon } from "./ui.js?v=0.17.0";
-import { boitePhoto, envoyerPhoto } from "./photo.js?v=0.17.0";
-import { banniereHorsLigne } from "./banniere.js?v=0.17.0";
-import { photosUtilisees, platNom } from "../../src/conteur/liens.js?v=0.17.0";
+import { h, icon } from "./ui.js?v=0.18.0";
+import { boitePhoto, envoyerPhoto } from "./photo.js?v=0.18.0";
+import { banniereHorsLigne } from "./banniere.js?v=0.18.0";
+import { photosUtilisees, platNom } from "../../src/conteur/liens.js?v=0.18.0";
 
 const CLASSES = [["creature", "Monstre"], ["lieu", "Lieu"], ["objet", "Objet"], ["personnage", "Personnage"], ["compagnon", "Compagnon"]];
 

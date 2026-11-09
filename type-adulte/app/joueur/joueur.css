@@ -388,6 +388,11 @@ body.joueur .jr-ajout .jr-saisie{min-height:44px}
 .mj-joueur-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
 .mj-joueur-actions .jr-bouton{flex:1 1 140px;min-height:46px;padding:0 12px;font-size:14px;text-decoration:none}
 .mj-bloc-doc{border:1px solid var(--trait);border-radius:16px;background:var(--sol);padding:0 16px}
+.mj-competences{padding:12px 16px;display:grid;gap:10px}
+.mj-comp-liste{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.mj-comp{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;min-height:44px}
+.mj-comp-nom{font-weight:600;flex:1 1 10rem}
+.mj-comp-val{font-variant-numeric:tabular-nums;font-weight:700}
 .mj-bloc-doc summary{list-style:none;display:flex;align-items:center;justify-content:space-between;min-height:54px;cursor:pointer}
 .mj-bloc-doc summary::-webkit-details-marker{display:none}
 .mj-bloc-doc[open] .mj-sommaire-fleche{transform:rotate(180deg)}

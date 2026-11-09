@@ -3,8 +3,8 @@
 //  - MJ (ou JDR « unique ») : une racine, le dossier complet du JDR sur son OneDrive ; tous les chemins du profil s'y appliquent.
 //  - Joueur en mode séparé : DEUX racines partagées, `table` (lecture) et `joueur` (modification). Le coffre n'existe pas pour lui :
 //    toute tentative d'y accéder est refusée ICI, avant même d'interroger OneDrive (seconde ligne de défense ; la première reste OneDrive).
-import { cheminSur, ConflitEcriture } from "../graph/client.js?v=0.17.0";
-import { NOM_MARQUEUR, PSEUDO } from "../racines/marqueur.js?v=0.17.0";
+import { cheminSur, ConflitEcriture } from "../graph/client.js?v=0.18.0";
+import { NOM_MARQUEUR, PSEUDO } from "../racines/marqueur.js?v=0.18.0";
 
 export class AccesRefuse extends Error {
   constructor(message, raison) { super(message); this.name = "AccesRefuse"; this.raison = raison; }

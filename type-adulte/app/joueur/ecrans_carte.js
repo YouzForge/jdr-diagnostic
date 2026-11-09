@@ -1,6 +1,6 @@
 // Onglet « Savoirs » › Carte : les cartes du monde (images du dossier de la table), avec zoom (boutons, pincement, molette) et déplacement au doigt.
-import { h, icon, message, urlImage, choix } from "./ui.js?v=0.17.0";
-import { sousNav } from "./ecrans_savoirs.js?v=0.17.0";
+import { h, icon, message, urlImage, choix } from "./ui.js?v=0.18.0";
+import { sousNav } from "./ecrans_savoirs.js?v=0.18.0";
 
 const MIN_RELATIF = 0.9, MAX_RELATIF = 10;
 

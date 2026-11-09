@@ -1,6 +1,6 @@
 // Éléments du dossier du joueur (savoirs, quêtes, journal, rencontres, notes) et objets du sac : lecture d'un fichier Markdown vers un objet d'affichage.
 // Sans DOM. La visibilité n'est PAS lue ici : le joueur ne voit que ce que OneDrive lui a donné ; ce qui s'y trouve est affiché tel quel (texte seulement).
-import { parseDoc, getSection, norm, intOf, humanize, isTrue } from "../md/doc.js?v=0.17.0";
+import { parseDoc, getSection, norm, intOf, humanize, isTrue } from "../md/doc.js?v=0.18.0";
 
 const t = v => (v == null ? "" : String(v).trim());
 const liste = v => t(v).split(/[,;]/).map(x => x.trim()).filter(Boolean);

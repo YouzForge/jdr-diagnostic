@@ -1,10 +1,13 @@
 // Écrans du MJ (D47, lecture seule) : l'accueil avec la liste des lieux et la session de jeu à venir, la lecture d'un document du coffre, le tableau de bord des joueurs et leurs notes MJ, la matrice « qui sait quoi ».
 // Même charte que les écrans du joueur : bandeau dégradé, panneau qui monte, onglets rouges (orange = écran actif), cartes sombres à bord arrondi, titres en Cinzel.
-// Pensés pour l'ordinateur (deux colonnes, large) et lisibles sur téléphone (une colonne). Rien ne s'écrit ici.
-import { parseDoc, norm } from "../../src/md/doc.js?v=0.17.0";
-import { ETATS_LIEU, STATUTS_SESSION, filtrerLieux, compterEtats } from "../../src/mj/accueil.js?v=0.17.0";
-import { construireMatrice, filtrerSavoirs, compterFiltres, FILTRES_SAVOIRS } from "../../src/mj/matrice.js?v=0.17.0";
-import { h, icon, message, rendreMarkdown, feuille, boiteImage } from "./ui.js?v=0.17.0";
+// Pensés pour l'ordinateur (deux colonnes, large) et lisibles sur téléphone (une colonne). Seule exception : les compétences spéciales d'un joueur (écran « Joueur », si l'écriture est ouverte).
+import { parseDoc, norm } from "../../src/md/doc.js?v=0.18.0";
+import { ETATS_LIEU, STATUTS_SESSION, filtrerLieux, compterEtats } from "../../src/mj/accueil.js?v=0.18.0";
+import { construireMatrice, filtrerSavoirs, compterFiltres, FILTRES_SAVOIRS } from "../../src/mj/matrice.js?v=0.18.0";
+import { h, icon, message, rendreMarkdown, feuille, boiteImage } from "./ui.js?v=0.18.0";
+import { executer, confirmer } from "./edition.js?v=0.18.0";
+import { EcritureInvalide } from "../../src/ecriture/fiche.js?v=0.18.0";
+import { MAX_COMPETENCE_NOM, MAX_COMPETENCE_LIENS, MAX_COMPETENCE_NOTE, MAX_COMPETENCE_TOTAL } from "../../src/joueur/ecriture.js?v=0.18.0";
 
 const enc = encodeURIComponent;
 const COPIE_ANCIENNE = "Copie enregistrée sur cet appareil : la connexion ne répond pas.";
@@ -219,6 +222,58 @@ export async function ecranJoueursMJ(ctx) {
   return { page: cadreMJ(ctx, { actif: "joueurs" }, ...contenu) };
 }
 
+/** Formulaire d'ajout d'une compétence spéciale : nom, liens, total, note. L'échec est dit dans la fenêtre ; la fenêtre se ferme à la réussite. */
+function formulaireCompetence(ctx, pseudo, surFini) {
+  const champ = (libelle, controle, aide) => h("label", { class: "jr-champ" }, h("span", null, libelle), controle, aide ? h("small", { class: "jr-aide" }, aide) : null);
+  const saisie = (props = {}) => h("input", { class: "jr-saisie", type: "text", autocomplete: "off", ...props });
+  const nom = saisie({ maxlength: String(MAX_COMPETENCE_NOM), "aria-label": "Nom de la compétence" });
+  const liens = saisie({ maxlength: String(MAX_COMPETENCE_LIENS), "aria-label": "Liens" });
+  const total = saisie({ inputmode: "numeric", maxlength: "3", "aria-label": "Total" });
+  const note = saisie({ maxlength: String(MAX_COMPETENCE_NOTE), "aria-label": "Note" });
+  const msg = h("div", { class: "jr-retour-action" });
+  const ok = h("button", { class: "jr-bouton gros", type: "button" }, icon("check", 20), "Ajouter");
+  const fermer = feuille("Ajouter une compétence spéciale", [
+    champ("Nom", nom), champ("Liens", liens, "Caractéristiques liées, par exemple « INT / DEX ». Facultatif."),
+    champ("Total", total, `Nombre entier de 0 à ${MAX_COMPETENCE_TOTAL}.`), champ("Note", note, "Facultatif."), msg, ok]);
+  const valide = async () => {
+    const r = await executer(ctx, async () => {
+      const t = total.value.trim();
+      if (!/^\d{1,3}$/.test(t)) throw new EcritureInvalide(`Total : entier de 0 à ${MAX_COMPETENCE_TOTAL}`, "competence_total");
+      return ctx.donnees.ajouterCompetenceJoueur(pseudo, { nom: nom.value, liens: liens.value, total: Number(t), note: note.value });
+    }, { zone: msg, boutons: [ok] });
+    if (!r.ok) return;
+    fermer(); surFini();
+  };
+  ok.addEventListener("click", valide);
+  for (const c of [nom, liens, total, note]) c.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); valide(); } });
+  setTimeout(() => nom.focus(), 50);
+}
+
+/** Bloc « Compétences spéciales » de l'écran d'un joueur : la liste lue dans sa fiche ; ajouter et retirer seulement si l'écriture est ouverte. */
+function blocCompetences(ctx, pseudo, apercu) {
+  const peut = !!(ctx.donnees && ctx.donnees.peutEcrireMJ);
+  const fiche = apercu && apercu.fiche;
+  const liste = fiche ? fiche.speciales : [];
+  const zone = h("div", { class: "jr-retour-action" });
+  const rafraichir = () => ctx.reafficher();
+  const retirer = async c => {
+    if (!await confirmer("Retirer cette compétence ?", `« ${c.nom} » sera retirée de la fiche de ${nomJoueur(pseudo)}.`, "Retirer")) return;
+    const r = await executer(ctx, () => ctx.donnees.retirerCompetenceJoueur(pseudo, c.nom), { zone });
+    if (r.ok) rafraichir();
+  };
+  const ligne = c => h("li", { class: "mj-comp" },
+    h("span", { class: "mj-comp-nom" }, c.nom), h("span", { class: "mj-comp-val" }, c.valeur == null ? "—" : String(c.valeur)),
+    c.liens ? h("span", { class: "jr-meta" }, c.liens) : null, c.note ? h("span", { class: "jr-meta" }, c.note) : null,
+    peut ? h("button", { class: "jr-rond", type: "button", "aria-label": `Retirer ${c.nom}`, onclick: () => retirer(c) }, icon("trash", 18)) : null);
+  return h("section", { class: "mj-bloc-doc mj-competences" },
+    h("div", { class: "mj-lieux-tete" }, h("h2", null, "Compétences spéciales"), peut ? h("button", { class: "jr-bouton", type: "button", onclick: () => formulaireCompetence(ctx, pseudo, rafraichir) }, icon("plus", 18), "Ajouter") : null),
+    !fiche ? message("Fiche du joueur illisible : ses compétences ne s'affichent pas.", "alerte")
+      : liste.length ? h("ul", { class: "mj-comp-liste" }, liste.map(ligne)) : h("p", { class: "jr-vide" }, "Aucune compétence spéciale dans la fiche."),
+    peut ? message("Écrit dans la fiche du joueur seulement : la copie « Fiche complète » du coffre n'est pas modifiée (à tenir à jour toi-même).", "info")
+      : message("Lecture seule : l'écriture est fermée pour ce JDR.", "info"),
+    zone);
+}
+
 /** Notes du MJ sur un joueur : ses secrets et la fiche complète, gardés au coffre. */
 export async function ecranJoueurMJ(ctx, pseudo) {
   const [secrets, fiche, apercu] = await Promise.all([ctx.donnees.documentJoueur(pseudo, "Secrets_MJ.md"), ctx.donnees.documentJoueur(pseudo, "Fiche_complete.md"), ctx.donnees.pour(pseudo).apercu().catch(() => null)]);
@@ -233,6 +288,7 @@ export async function ecranJoueurMJ(ctx, pseudo) {
   const page = cadreMJ(ctx, { actif: "joueurs" }, retour,
     h("div", { class: "mj-doc-tete" }, h("h2", { class: "mj-doc-titre" }, nom), h("p", { class: "jr-meta" }, `Notes du MJ · ${nomJoueur(pseudo)} · jamais visibles par les joueurs`)),
     (secrets.perime || fiche.perime) ? message(COPIE_ANCIENNE, "alerte") : null,
+    blocCompetences(ctx, pseudo, apercu),
     bloc("Secrets du MJ", secrets, "Secrets_MJ.md", true),
     bloc("Fiche complète (copie du coffre)", fiche, "Fiche_complete.md", false));
   return { page };

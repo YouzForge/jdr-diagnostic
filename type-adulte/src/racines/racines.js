@@ -6,8 +6,8 @@
 //   2. les liens de partage collés par le joueur (API Shares, `Prefer: redeemSharingLink`) ;
 //   3. les raccourcis OneDrive du joueur (dossiers distants dans Mes fichiers) ;
 //   4. « Partagés avec moi », en simple complément (jamais seul, jamais indispensable).
-import { lireMarqueur, NOM_MARQUEUR } from "./marqueur.js?v=0.17.0";
-import { pool } from "../graph/pool.js?v=0.17.0";
+import { lireMarqueur, NOM_MARQUEUR } from "./marqueur.js?v=0.18.0";
+import { pool } from "../graph/pool.js?v=0.18.0";
 
 const EMPLACEMENTS_RACCOURCIS = ["", "Documents", "Documents/JDR"];
 /**
