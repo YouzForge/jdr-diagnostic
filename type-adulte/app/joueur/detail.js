@@ -1,8 +1,8 @@
 // Fenêtre de détail d'un élément (savoir, quête, note, objet) : titre, repères, image, étiquettes, texte Markdown.
 // Si le joueur peut écrire (tranche 2) : étiquettes modifiables, « Modifier » pour ses notes, « Déplacer » et « Retirer » pour les objets du sac.
-import { h, icon, feuille, rendreMarkdown, meta, puces, boiteImage, message } from "./ui.js?v=0.18.0";
-import { peut, blocEtiquettes, modifierNote, confirmer, executer } from "./edition.js?v=0.18.0";
-import { NON_CLASSE } from "../../src/joueur/sac.js?v=0.18.0";
+import { h, icon, feuille, rendreMarkdown, meta, puces, boiteImage, message } from "./ui.js?v=0.18.1";
+import { peut, blocEtiquettes, modifierNote, confirmer, executer } from "./edition.js?v=0.18.1";
+import { NON_CLASSE } from "../../src/joueur/sac.js?v=0.18.1";
 
 const ZONES_ETIQUETTES = ["savoirs", "quetes", "notes", "rencontres", "journal", "sac"];
 

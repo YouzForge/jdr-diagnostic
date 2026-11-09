@@ -1,7 +1,7 @@
 // Fenêtre de jet d100 : compétence, caractéristique, chance, idée, ou jet libre (sans valeur à atteindre).
 // Règles : src/joueur/d100.js (profil). Si le profil n'écrit pas la règle de réussite, un jet CONTRE une valeur est refusé : le moteur ne devine pas une règle de jeu.
-import { h, icon, feuille, message } from "./ui.js?v=0.18.0";
-import { lancer, categorie, bandes, phraseSeuil, remarque, estReussite, LIBELLES, CATEGORIES } from "../../src/joueur/d100.js?v=0.18.0";
+import { h, icon, feuille, message } from "./ui.js?v=0.18.1";
+import { lancer, categorie, bandes, phraseSeuil, remarque, estReussite, LIBELLES, CATEGORIES } from "../../src/joueur/d100.js?v=0.18.1";
 
 const COULEUR = { reussite_critique: "var(--vert-vif)", reussite: "var(--vert)", echec: "var(--orange)", echec_critique: "var(--rouge)" };
 const reduit = () => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };

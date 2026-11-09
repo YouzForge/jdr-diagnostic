@@ -2,7 +2,7 @@
 // Convention (à confirmer par le MJ) : deux fichiers de deux joueurs sont LE MÊME savoir quand leurs noms sont identiques,
 // extension, casse, accents, espaces, tirets et soulignés ignorés. Aucun catalogue central n'existe : un savoir que personne ne possède n'apparaît pas.
 // Rien n'est téléchargé : la matrice se lit sur les listes de dossiers déjà demandées par le tableau de bord des joueurs.
-import { norm, humanize } from "../md/doc.js?v=0.18.0";
+import { norm, humanize } from "../md/doc.js?v=0.18.1";
 
 const SANS_EXTENSION = n => String(n).replace(/\.md$/i, "");
 

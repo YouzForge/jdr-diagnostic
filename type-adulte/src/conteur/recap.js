@@ -1,7 +1,7 @@
 // Récap du soir : brouillon (prérempli depuis la séance) et fichier Markdown. Le fichier suit le modèle « Modele_Recap_du_soir.md » :
 // une tâche planifiée le lit à la lettre pour écrire le compte rendu (voir Automatisation_recap).
-import { texteSoins, texteGagnees, texteUtilisees } from "./potions.js?v=0.18.0";
-import { finEnTexte } from "./seance.js?v=0.18.0";
+import { texteSoins, texteGagnees, texteUtilisees } from "./potions.js?v=0.18.1";
+import { finEnTexte } from "./seance.js?v=0.18.1";
 
 const p2 = n => String(n).padStart(2, "0");
 export const dateDe = t => { const d = new Date(t); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };

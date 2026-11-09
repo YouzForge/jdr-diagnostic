@@ -7,11 +7,11 @@
 //   1. parmi ceux déjà mémorisés sur l'appareil (identifiants OneDrive, jamais les liens) puis revérifiés au démarrage ;
 //   2. sinon par les liens collés une fois ; sinon par les raccourcis OneDrive et, en simple complément, « Partagés avec moi ».
 // Si un accès a été retiré, la copie locale n'est JAMAIS servie à la place : on oublie le dossier et on redemande le lien.
-import { determinerRole } from "./roles.js?v=0.18.0";
-import { creerCache } from "../depot/cache.js?v=0.18.0";
-import { creerDepot } from "../depot/depot.js?v=0.18.0";
-import { trouverRacines, verifierRacinesDetail } from "../racines/racines.js?v=0.18.0";
-import { nomMemoire, ecrireMemoire, lireMemoire } from "../racines/memoire.js?v=0.18.0";
+import { determinerRole } from "./roles.js?v=0.18.1";
+import { creerCache } from "../depot/cache.js?v=0.18.1";
+import { creerDepot } from "../depot/depot.js?v=0.18.1";
+import { trouverRacines, verifierRacinesDetail } from "../racines/racines.js?v=0.18.1";
+import { nomMemoire, ecrireMemoire, lireMemoire } from "../racines/memoire.js?v=0.18.1";
 
 const estAuth = e => e && (e.status === 401 || e.auth);
 

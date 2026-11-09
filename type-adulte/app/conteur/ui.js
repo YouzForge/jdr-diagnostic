@@ -1,7 +1,7 @@
 // Petites briques d'interface du conteur. RÈGLE du moteur : jamais de innerHTML (un test le vérifie) ; tout est construit avec le DOM.
-import { icone } from "../icones.js?v=0.18.0";
-import { encreSur } from "../../src/conteur/objets.js?v=0.18.0";
-import { blocsMarkdown, inline as inlineMd } from "../../src/app/markdown.js?v=0.18.0";
+import { icone } from "../icones.js?v=0.18.1";
+import { encreSur } from "../../src/conteur/objets.js?v=0.18.1";
+import { blocsMarkdown, inline as inlineMd } from "../../src/app/markdown.js?v=0.18.1";
 
 const SVGNS = "http://www.w3.org/2000/svg";
 

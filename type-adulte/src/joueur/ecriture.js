@@ -1,9 +1,9 @@
 // Textes écrits par le joueur (tranche 2) : étiquettes, notes, note de rencontre, points de vie, bourse. Sans DOM, sans réseau.
 // Tout passe par l'édition fidèle du moteur (`modifierFiche`, `creerFiche`) : seul ce qui est demandé change, le reste du fichier
 // reste identique à l'octet près. Une valeur refusée lève `EcritureInvalide` (jamais corrigée en silence).
-import { modifierFiche, creerFiche, verifierValeur, EcritureInvalide, nomFichier } from "../ecriture/fiche.js?v=0.18.0";
-import { norm, parseDoc, getSection } from "../md/doc.js?v=0.18.0";
-import { lireTableau } from "./tableaux.js?v=0.18.0";
+import { modifierFiche, creerFiche, verifierValeur, EcritureInvalide, nomFichier } from "../ecriture/fiche.js?v=0.18.1";
+import { norm, parseDoc, getSection } from "../md/doc.js?v=0.18.1";
+import { lireTableau } from "./tableaux.js?v=0.18.1";
 
 export const MAX_ETIQUETTE = 30;
 export const MAX_ETIQUETTES_PAR_ELEMENT = 12;
@@ -14,7 +14,7 @@ export const MAX_BOURSE = 80;
 export const MAX_COMPETENCE_NOM = 60;
 export const MAX_COMPETENCE_LIENS = 40;
 export const MAX_COMPETENCE_NOTE = 200;
-export const MAX_COMPETENCE_TOTAL = 999;   // garde-fou technique, pas une règle de jeu : la règle (plafond d'une compétence) reste au MJ
+export const MAX_COMPETENCE_TOTAL = 100;   // règle donnée par le MJ (9 novembre) : une compétence va de 0 à 100
 
 const refuser = (m, r) => { throw new EcritureInvalide(m, r); };
 

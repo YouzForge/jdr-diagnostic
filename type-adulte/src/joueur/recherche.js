@@ -1,5 +1,5 @@
 // Recherche locale (D39) : index construit sur les copies DÉJÀ lues, aucun appel au serveur. Insensible à la casse et aux accents. Logique pure.
-import { norm } from "../md/doc.js?v=0.18.0";
+import { norm } from "../md/doc.js?v=0.18.1";
 
 /** Texte de recherche : minuscules, sans accents ni ligature, ponctuation → espaces (garde les espaces entre les mots). */
 export const aplatir = s => String(s ?? "").toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[’']/g, "'").replace(/[^a-z0-9']+/g, " ").trim();

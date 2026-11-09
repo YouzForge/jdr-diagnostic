@@ -1,7 +1,7 @@
 // Recherche globale : tout ce que le joueur peut lire (savoirs, quêtes, journal, rencontres, notes, sac), avec filtres.
 // L'index est construit sur les copies déjà lues (src/joueur/recherche.js) ; aucun appel supplémentaire au serveur par frappe.
-import { h, icon, message, pastille, choix, surbrillance, extrait, meta, puces } from "./ui.js?v=0.18.0";
-import { chercher, grouperParType, valeursDeFiltres, TYPES } from "../../src/joueur/recherche.js?v=0.18.0";
+import { h, icon, message, pastille, choix, surbrillance, extrait, meta, puces } from "./ui.js?v=0.18.1";
+import { chercher, grouperParType, valeursDeFiltres, TYPES } from "../../src/joueur/recherche.js?v=0.18.1";
 
 const PAR_GROUPE = 25;
 

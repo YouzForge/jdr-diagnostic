@@ -1,5 +1,5 @@
 // Tableaux Markdown (« | A | B | ») d'une fiche → lignes d'objets. Sans DOM. Un contenu inattendu est ignoré, jamais une erreur.
-import { norm, getSection } from "../md/doc.js?v=0.18.0";
+import { norm, getSection } from "../md/doc.js?v=0.18.1";
 
 const cellules = ligne => {
   let l = ligne.trim();
