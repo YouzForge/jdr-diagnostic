@@ -17,6 +17,8 @@ import { lireLieuMJ, lireSessionMJ, trierParNumero, trierSessions, sessionAVenir
 const IMAGE = /\.(jpe?g|png|webp)$/i;
 const MARKDOWN = /^(?!00_|LISEZMOI).+\.md$/i;
 const NOM_ETIQUETTES = "Etiquettes.md";
+const NOM_DOSSIER = /^(?![._])[^/\\:?*"<>|\u0000-\u001f]{1,80}$/;   // un pseudo de joueur : un nom de dossier, jamais un chemin
+const FICHIERS_MIROIR = ["Secrets_MJ.md", "Fiche_complete.md"];   // ce que le MJ garde au coffre pour chaque joueur
 const estAuth = e => e && (e.status === 401 || e.auth);
 
 /** Noms de dossiers du dossier du joueur, d'après `profil.joueur_modele.dossiers` ; un dossier non déclaré donne `null` (écran vide, jamais une erreur). */
@@ -151,20 +153,50 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
     return lire(chemin);
   }
 
+  // Écran « Joueurs » du MJ : un petit objet de données par joueur (même profil, même dépôt, MJ en lecture), qui prévient l'écran comme les autres.
+  const enfants = new Map();
+  function enfant(p) {
+    let e = enfants.get(p);
+    if (!e) { e = creerDonneesJoueur({ profil, depot, role, pseudo: p, ecriture: false, delaiRevalidation, fraicheurMemo, images }); e.surMiseAJour(info => { invalider(); notifier(info); }); enfants.set(p, e); }
+    return e;
+  }
+  /** Nombre de fichiers .md d'un dossier du joueur (la liste suffit : rien n'est téléchargé). */
+  const compter = rel => {
+    if (!rel) return Promise.resolve({ n: 0, perime: false });
+    const chemin = dansJoueur(rel);
+    return avecCopie("n:" + chemin,
+      () => { const ls = depot.listerCopie(chemin); return ls ? { n: noms(ls).length, perime: horsLigne } : null; },
+      async () => { const ls = await lister(chemin); return { n: noms(ls.fichiers).length, perime: ls.perime }; });
+  };
+  /** Texte d'un fichier du coffre : la copie d'abord ; sinon la liste du dossier donne la version et le fichier n'est retéléchargé que si elle a changé. → { texte, perime } ; texte null = fichier disparu. */
+  async function lireDocCoffre(d, fichier) {
+    const chemin = `${d}/${fichier}`;
+    const reseau = async () => {
+      const ls = await lister(d);
+      const f = ls.fichiers.find(x => !x.dir && x.name === fichier);
+      if (!f) return { texte: null, perime: ls.perime };
+      const r = await lire(chemin, { sig: f.sig || "" });
+      return { texte: r.texte, perime: r.perime || ls.perime };
+    };
+    const c = rapide ? depot.lireCopie(chemin) : null;
+    if (c != null) { revalider("f:" + chemin, reseau, { texte: c }); return { texte: c, perime: horsLigne }; }
+    return reseau();
+  }
+
   const api = {
     profil, role, pseudo, dossiers, dansJoueur,
 
     /** Prévient l'écran quand la copie affichée n'est plus la bonne : `rappel({})` (données changées ou état du réseau), `rappel({ erreur })` (reconnexion ou accès retiré). */
     surMiseAJour(rappel) { ecoute = rappel; },
     /** Oublie ce qui est gardé en mémoire de page (après une écriture) : la prochaine lecture repart de la copie locale. */
-    invalider,
+    invalider() { invalider(); for (const e of enfants.values()) e.invalider(); },
     /** Comme « Actualiser » : oublie aussi les vérifications récentes, la prochaine lecture revérifie sur le réseau. */
-    actualiser() { invalider(); dernier.clear(); },
+    actualiser() { invalider(); dernier.clear(); for (const e of enfants.values()) e.actualiser(); },
     /** Attend les vérifications en arrière-plan en cours (tests). */
-    attendreVerifications: () => Promise.all([...enCours.values()]),
+    attendreVerifications: () => Promise.all([...enCours.values(), ...[...enfants.values()].map(e => e.attendreVerifications())]),
     /** Lit les écrans dans l'ordre, un à la fois, pendant que le joueur lit le premier : le changement d'onglet est alors immédiat. */
     async prechauffer() {
-      for (const t of (pseudo || role !== "mj" ? [api.fiche, api.etiquettes, api.savoirs, api.quetes, api.rencontres, api.journal, api.sac, api.cartes] : [api.lieux, api.sessions])) {
+      for (const t of (pseudo || role !== "mj" ? [api.fiche, api.etiquettes, api.savoirs, api.quetes, api.rencontres, api.journal, api.sac, api.cartes] : [api.lieux, api.sessions, api.joueurs])) {
         try { await t(); } catch (e) { if (estAuth(e)) throw e; }
       }
     },
@@ -193,18 +225,41 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
       const d = dossierDeCollection(collection);
       if (!d) throw new AccesRefuse("Collection non déclarée dans le profil", "collection_inconnue");
       if (!NOM_SIMPLE.test(String(fichier))) throw new AccesRefuse("Nom de fichier invalide", "nom_invalide");
-      const chemin = `${d}/${fichier}`;
-      // Réseau : la liste du dossier donne la version du fichier ; il n'est retéléchargé que si elle a changé (un lieu pèse jusqu'à plusieurs dizaines de Ko).
-      const reseau = async () => {
-        const ls = await lister(d);
-        const f = ls.fichiers.find(x => !x.dir && x.name === fichier);
-        if (!f) return { texte: null, perime: ls.perime };
-        const r = await lire(chemin, { sig: f.sig || "" });
-        return { texte: r.texte, perime: r.perime || ls.perime };
-      };
-      const c = rapide ? depot.lireCopie(chemin) : null;
-      if (c != null) { revalider("f:" + chemin, reseau, { texte: c }); return { texte: c, perime: horsLigne }; }
-      return reseau();
+      return lireDocCoffre(d, fichier);
+    },
+
+    /** Les joueurs, vus du MJ : un aperçu par dossier de `Joueurs/` (fiche et nombre de savoirs, quêtes, rencontres). Le modèle `_…` n'est pas un joueur. → { joueurs:[apercu…], perime, absent } */
+    joueurs: () => memoiser("joueurs", async () => {
+      reserveMJ();
+      const dos = sec.joueurs || "Joueurs";
+      const ls = await avecCopie("j:" + dos,
+        () => { const l = depot.listerCopie(dos); return l ? { fichiers: l, perime: horsLigne, absent: false } : null; },
+        () => lister(dos));
+      const pseudos = sousDossiers(ls.fichiers).filter(n => NOM_DOSSIER.test(n));
+      const vus = await pool(pseudos, p => enfant(p).apercu().catch(e => {
+        if (estAuth(e) || e instanceof AccesRetire) throw e;
+        return { pseudo: p, fiche: null, comptes: { savoirs: 0, quetes: 0, rencontres: 0 }, erreur: true, perime: false };
+      }), 4);
+      return { joueurs: vus, perime: !!ls.perime || vus.some(v => v.perime), absent: !!ls.absent };
+    }),
+    /** Aperçu d'un joueur (objet ouvert sur ce joueur) : sa fiche et le nombre de ses savoirs, quêtes et rencontres. */
+    apercu: () => memoiser("apercu", async () => {
+      reserveMJ();
+      if (!pseudo) throw new AccesRefuse("Choisis d'abord un joueur à voir", "joueur_a_choisir");
+      const [f, sv, qu, re] = await Promise.all([api.fiche(), compter(dossiers.savoirs), compter(dossiers.quetes), compter(dossiers.rencontres)]);
+      return { pseudo, fiche: f.fiche, comptes: { savoirs: sv.n, quetes: qu.n, rencontres: re.n }, erreur: false, perime: !!(f.perime || sv.perime || qu.perime || re.perime) };
+    }),
+    /** L'objet de données d'un joueur précis (lecture seule), pour les écrans du MJ : portrait, fiche… */
+    pour(p) { reserveMJ(); if (!NOM_DOSSIER.test(String(p))) throw new AccesRefuse("Nom de joueur invalide", "nom_invalide"); return enfant(p); },
+    /** Un fichier que le MJ garde au coffre pour un joueur (`Secrets_MJ.md`, `Fiche_complete.md`). → { texte, perime, absent } */
+    async documentJoueur(p, fichier) {
+      reserveMJ();
+      if (!NOM_DOSSIER.test(String(p))) throw new AccesRefuse("Nom de joueur invalide", "nom_invalide");
+      if (!FICHIERS_MIROIR.includes(fichier)) throw new AccesRefuse("Fichier non prévu", "nom_invalide");
+      const modele = (profil.joueur_modele || {}).miroir_mj;
+      if (!modele) return { texte: null, perime: false, absent: true };
+      const r = await lireDocCoffre(modele.replace("{pseudo}", p), fichier);
+      return { ...r, absent: false };
     },
 
     fiche: () => memoiser("fiche", async () => {

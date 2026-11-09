@@ -5,7 +5,6 @@
 import { creerDonneesJoueur } from "../../src/joueur/donnees.js";
 import { nature, issue } from "../../src/joueur/geste.js";
 import { reglesD100 } from "../../src/joueur/d100.js";
-import { listerJoueurs } from "../../src/app/bibliotheque.js";
 import { h, icon, attente, message, urlImage, viderImages, feuille, feuilleOuverte } from "./ui.js";
 import { ouvrirJet } from "./jet.js";
 import { ecranFiche, ecranCompetences } from "./ecrans_fiche.js";
@@ -13,7 +12,7 @@ import { ecranSacDossiers, ecranSacTout, ecranSacDossier } from "./ecrans_sac.js
 import { ecranSavoirs, ecranQuetes, ecranNotes, ecranJournal, ecranRencontres, ecranRencontre } from "./ecrans_savoirs.js";
 import { ecranCarte } from "./ecrans_carte.js";
 import { ecranRecherche } from "./ecrans_recherche.js";
-import { ecranAccueilMJ, ecranDocumentMJ, cadreMJ } from "./ecrans_mj.js";
+import { ecranAccueilMJ, ecranDocumentMJ, ecranJoueursMJ, ecranJoueurMJ } from "./ecrans_mj.js";
 import { creerStockageImages } from "./stockage_images.js";
 
 const dec = decodeURIComponent;
@@ -55,7 +54,9 @@ const ROUTES = [
 const ROUTES_MJ = [
   [/^\/mj$/, ctx => ecranAccueilMJ(ctx)],
   [/^\/mj\/lieu\/(.+)$/, (ctx, f) => ecranDocumentMJ(ctx, "lieu", dec(f))],
-  [/^\/mj\/session\/(.+)$/, (ctx, f) => ecranDocumentMJ(ctx, "session", dec(f))]
+  [/^\/mj\/session\/(.+)$/, (ctx, f) => ecranDocumentMJ(ctx, "session", dec(f))],
+  [/^\/mj\/joueurs$/, ctx => ecranJoueursMJ(ctx)],
+  [/^\/mj\/joueur\/(.+)$/, (ctx, p) => ecranJoueurMJ(ctx, dec(p))]
 ];
 
 export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur, surErreur, ecriture = false }) {
@@ -133,7 +134,7 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
   }
   // Un joueur ouvre son dossier ; le MJ ouvre sans joueur (écrans du MJ) ou, s'il l'a choisi, « comme » un joueur.
   ouvrirDonnees(estMJ() ? (lireSession("voir") || "") : (session.pseudo || ""));
-  ctx.actions = { versMoteur, deconnecter, actualiser: () => { ctx.vider(); ctx.donnees.actualiser(); viderImages(); afficher(); } };
+  ctx.actions = { versMoteur, deconnecter, voirComme: n => { ecrireSession("voir", n); ouvrirDonnees(n); location.hash = "#/"; }, actualiser: () => { ctx.vider(); ctx.donnees.actualiser(); viderImages(); afficher(); } };
   const accueilMJ = () => { ecrireSession("voir", null); ouvrirDonnees(""); location.hash = "#/mj"; };
 
   /* ---- Coque ---- */
@@ -205,17 +206,6 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
     return racineJr;
   }
 
-  /* ---- Choix du joueur (MJ) ---- */
-  async function ecranChoix() {
-    const noms = (await listerJoueurs({ session: ctx.session, profil }).catch(e => { if (e && (e.status === 401 || e.auth)) throw e; return []; })).filter(n => !String(n).startsWith("_")); // « _Modele_joueur » n'est pas un joueur
-    const page = cadreMJ(ctx, { actif: "joueurs" },
-      h("div", { class: "mj-doc-tete" }, h("h2", { class: "mj-doc-titre" }, "Voir comme un joueur"),
-        h("p", { class: "jr-meta" }, "Tu verras exactement ce que voit ce joueur : son dossier et la table. Rien n'est modifié.")),
-      noms.length ? h("ul", { class: "jr-choix-liste" }, noms.map(n => h("li", null, h("button", { class: "jr-carte", onclick: () => { ecrireSession("voir", n); ouvrirDonnees(n); location.hash = "#/"; } },
-        h("div", { class: "jr-carte-tete" }, icon("user", 20), h("span", { class: "jr-carte-titre" }, n.replace(/_/g, " "))))))) : message("Aucun dossier de joueur dans « " + (profil.securite.joueurs || "Joueurs") + " » : crée-en un avec le générateur.", "info"));
-    return page;
-  }
-
   /* ---- Routeur ---- */
   let jeton = 0, nettoyage = null;
   async function afficher() {
@@ -226,12 +216,6 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
     const attendre = setTimeout(() => { if (moi === jeton) racine.replaceChildren(attente()); }, 250);
     try {
       if (estMJ() && !ctx.donnees.pseudo && !chemin.startsWith("/mj")) { clearTimeout(attendre); location.hash = "#/mj"; return; }   // sans joueur choisi : écrans du MJ seulement
-      if (estMJ() && chemin === "/mj/joueurs") {
-        const noeud = await ecranChoix();
-        clearTimeout(attendre);
-        if (moi === jeton) { ctx.panneau = "ferme"; racine.replaceChildren(noeud); }
-        return;
-      }
       if (chemin.startsWith("/mj")) {
         let mj = null;
         if (estMJ()) for (const [re, fn] of ROUTES_MJ) { const m = chemin.match(re); if (m) { mj = { fn, args: m.slice(1) }; break; } }

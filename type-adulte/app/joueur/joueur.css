@@ -337,7 +337,7 @@ body.joueur .jr-ajout .jr-saisie{min-height:44px}
 .mj-etat.sans{opacity:.6;font-weight:500}
 .mj-etat.sans::before{display:none}
 /* lecture d'un document */
-.mj-doc-tete{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.mj-doc-tete{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .mj-doc-titre{font-size:28px;overflow-wrap:anywhere}
 .mj-doc-corps{display:grid;grid-template-columns:280px minmax(0,1fr);gap:28px;align-items:start}
 .mj-doc-corps:not(:has(.mj-sommaire)){grid-template-columns:minmax(0,1fr)}
@@ -364,3 +364,33 @@ body.joueur .jr-ajout .jr-saisie{min-height:44px}
 .md-tableau th{background:var(--creux,#8881);font-weight:600}
 
 .jr-choix-liste{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:10px}
+/* ---- Écrans du MJ : tableau de bord des joueurs (tranche 2) ---- */
+.mj-joueurs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:12px}
+.mj-joueur{height:100%;display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:16px;border:1px solid var(--trait);background:var(--sol)}
+.mj-joueur-tete{display:flex;align-items:center;gap:12px}
+.mj-portrait{width:64px;height:64px}
+.mj-joueur-id{min-width:0;display:flex;flex-direction:column;gap:2px}
+.mj-joueur-nom{margin:0;font-family:"Cinzel",serif;font-size:19px;font-weight:600;color:var(--texte);text-transform:none;letter-spacing:.01em;overflow-wrap:anywhere}
+.mj-pv{display:flex;flex-direction:column;gap:6px}
+.mj-pv-texte{display:flex;align-items:baseline;justify-content:space-between;color:var(--voile);font-size:13px}
+.mj-pv-texte strong{font-family:"Cinzel",serif;font-size:20px;color:var(--texte);font-variant-numeric:tabular-nums}
+.mj-pv .mj-pv-barre{width:100%;height:8px;margin:0}
+.mj-pv.haut .mj-pv-barre div{background:var(--vert-vif)}
+.mj-pv.moyen .mj-pv-barre div{background:var(--orange)}
+.mj-pv.bas .mj-pv-barre div{background:var(--rouge)}
+.mj-pv.bas .mj-pv-texte strong{color:#f3b8ad}
+.mj-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mj-stat{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 4px;border-radius:12px;background:var(--creux)}
+.mj-stat strong{font-family:"Cinzel",serif;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums}
+.mj-stat span{font-size:11.5px;color:var(--voile);font-weight:500}
+.mj-bourse{display:flex;align-items:center;gap:8px;color:var(--voile);font-size:14px}
+.mj-bourse svg{color:var(--orange)}
+.mj-joueur-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
+.mj-joueur-actions .jr-bouton{flex:1 1 140px;min-height:46px;padding:0 12px;font-size:14px;text-decoration:none}
+.mj-bloc-doc{border:1px solid var(--trait);border-radius:16px;background:var(--sol);padding:0 16px}
+.mj-bloc-doc summary{list-style:none;display:flex;align-items:center;justify-content:space-between;min-height:54px;cursor:pointer}
+.mj-bloc-doc summary::-webkit-details-marker{display:none}
+.mj-bloc-doc[open] .mj-sommaire-fleche{transform:rotate(180deg)}
+.mj-bloc-doc .mj-corps{padding-bottom:16px}
+.mj-bloc-doc summary h2{font-size:17px}
+.mj-bloc-doc .jr-msg{margin-bottom:16px}

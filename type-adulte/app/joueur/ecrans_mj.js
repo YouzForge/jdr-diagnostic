@@ -1,9 +1,9 @@
-// Écrans du MJ (D47, tranche 1, lecture seule) : l'accueil avec la liste des lieux et la session de jeu à venir, et la lecture d'un document du coffre.
+// Écrans du MJ (D47, lecture seule) : l'accueil avec la liste des lieux et la session de jeu à venir, la lecture d'un document du coffre, le tableau de bord des joueurs et leurs notes MJ.
 // Même charte que les écrans du joueur : bandeau dégradé, panneau qui monte, onglets rouges (orange = écran actif), cartes sombres à bord arrondi, titres en Cinzel.
 // Pensés pour l'ordinateur (deux colonnes, large) et lisibles sur téléphone (une colonne). Rien ne s'écrit ici.
-import { parseDoc } from "../../src/md/doc.js";
+import { parseDoc, norm } from "../../src/md/doc.js";
 import { ETATS_LIEU, STATUTS_SESSION, filtrerLieux, compterEtats } from "../../src/mj/accueil.js";
-import { h, icon, message, rendreMarkdown, feuille } from "./ui.js";
+import { h, icon, message, rendreMarkdown, feuille, boiteImage } from "./ui.js";
 
 const enc = encodeURIComponent;
 const COPIE_ANCIENNE = "Copie enregistrée sur cet appareil : la connexion ne répond pas.";
@@ -48,7 +48,7 @@ export function cadreMJ(ctx, { actif = "accueil", titre } = {}, ...contenu) {
     h("div", { class: "mj-panneau" },
       h("nav", { class: "mj-onglets", "aria-label": "Écrans du MJ" },
         onglet("accueil", "book", "Accueil", { href: "#/mj" }),
-        onglet("joueurs", "user", "Vue joueur", { href: "#/mj/joueurs" }),
+        onglet("joueurs", "friends", "Joueurs", { href: "#/mj/joueurs" }),
         a.versMoteur ? onglet("moteur", "scroll", "Listes", { onclick: () => a.versMoteur() }) : null),
       h("div", { class: "mj-contenu" }, contenu)));
 }
@@ -166,5 +166,72 @@ export async function ecranDocumentMJ(ctx, collection, fichier) {
       h("div", { class: "jr-puces" }, reperes.map(chip), entree ? (collection === "lieu" ? badgeEtat(entree) : badgeStatut(entree)) : null)),
     r.perime ? message(COPIE_ANCIENNE, "alerte") : null,
     h("div", { class: "mj-doc-corps" }, sommaire, corps), haut);
+  return { page };
+}
+
+/* ------------------------------------------------------------------ Joueurs (tranche 2) */
+const nomJoueur = p => String(p).replace(/_/g, " ");
+const nombreOuTiret = v => (v == null ? "–" : String(v));
+
+/** Une carte de joueur : portrait, nom, PV, valeurs de la fiche, bourse, compte des savoirs / quêtes / rencontres, et les deux accès. */
+function carteJoueur(ctx, j) {
+  const f = j.fiche;
+  const enfant = ctx.donnees.pour(j.pseudo);
+  const tete = h("div", { class: "mj-joueur-tete" },
+    boiteImage({ donnees: enfant }, f && f.portrait, "jr-vignette ronde mj-portrait", "user"),
+    h("div", { class: "mj-joueur-id" },
+      h("h3", { class: "mj-joueur-nom" }, (f && f.nom) || nomJoueur(j.pseudo)),
+      h("div", { class: "jr-meta" }, [f && norm(f.nom) === norm(nomJoueur(j.pseudo)) ? "" : nomJoueur(j.pseudo), f && f.classe ? f.classe.nom : ""].filter(Boolean).join(" · "))));
+  const actions = h("div", { class: "mj-joueur-actions" },
+    h("a", { class: "jr-bouton", href: `#/mj/joueur/${enc(j.pseudo)}` }, icon("lock", 18), "Notes MJ"),
+    h("button", { class: "jr-bouton", type: "button", onclick: () => ctx.actions.voirComme(j.pseudo) }, icon("eye", 18), "Voir comme lui"));
+  if (!f) {
+    return h("li", null, h("article", { class: "mj-joueur sans-fiche" }, tete,
+      message(j.erreur ? "Ce dossier ne s'est pas lu correctement." : "Aucune fiche lisible dans le dossier de ce joueur.", j.erreur ? "erreur" : "info"), actions));
+  }
+  const rapport = f.pv != null && f.pvMax ? Math.max(0, Math.min(1, f.pv / f.pvMax)) : null;
+  const niveau = rapport == null ? "" : rapport <= 0.3 ? "bas" : rapport <= 0.6 ? "moyen" : "haut";
+  const pv = h("div", { class: "mj-pv" + (niveau ? " " + niveau : "") },
+    h("div", { class: "mj-pv-texte" }, h("span", null, "Points de vie"), h("strong", null, f.pv == null ? "–" : f.pvMax ? `${f.pv} / ${f.pvMax}` : String(f.pv))),
+    rapport == null ? null : h("div", { class: "jr-pvbarre mj-pv-barre", role: "img", "aria-label": `${f.pv} points de vie sur ${f.pvMax}` }, h("div", { style: `width:${Math.round(rapport * 100)}%` })));
+  const stat = (lib, v) => h("div", { class: "mj-stat" }, h("strong", null, nombreOuTiret(v)), h("span", null, lib));
+  const c = j.comptes;
+  const pl = (n, un, plus) => `${n} ${n > 1 ? plus : un}`;
+  return h("li", null, h("article", { class: "mj-joueur" }, tete, pv,
+    h("div", { class: "mj-stats" }, stat("Armure", f.armure), stat("Chance", f.chance), stat("Idée", f.idee)),
+    f.bourse ? h("div", { class: "mj-bourse" }, icon("purse", 18), h("span", null, f.bourse)) : null,
+    h("div", { class: "jr-puces" }, chip(pl(c.savoirs, "savoir", "savoirs")), chip(pl(c.quetes, "quête", "quêtes")), chip(pl(c.rencontres, "rencontre", "rencontres"))),
+    actions));
+}
+
+/** Tableau de bord des joueurs. */
+export async function ecranJoueursMJ(ctx) {
+  const r = await ctx.donnees.joueurs();
+  const contenu = [
+    h("div", { class: "mj-doc-tete" }, h("h2", { class: "mj-doc-titre" }, "Joueurs"),
+      h("p", { class: "jr-meta" }, "L'état de chaque joueur d'après son dossier. Lecture seule : « Voir comme lui » ouvre exactement ce qu'il voit.")),
+    (r.perime) ? message(COPIE_ANCIENNE, "alerte") : null,
+    r.absent ? message(`Le dossier « ${(ctx.profil.securite || {}).joueurs || "Joueurs"} » n'existe pas encore : crée-le avec le générateur.`, "info")
+      : !r.joueurs.length ? message("Aucun dossier de joueur pour l'instant. Un dossier par joueur, créé par le générateur, avec sa fiche.", "info")
+        : h("ul", { class: "mj-joueurs" }, r.joueurs.map(j => carteJoueur(ctx, j)))];
+  return { page: cadreMJ(ctx, { actif: "joueurs" }, ...contenu) };
+}
+
+/** Notes du MJ sur un joueur : ses secrets et la fiche complète, gardés au coffre. */
+export async function ecranJoueurMJ(ctx, pseudo) {
+  const [secrets, fiche, apercu] = await Promise.all([ctx.donnees.documentJoueur(pseudo, "Secrets_MJ.md"), ctx.donnees.documentJoueur(pseudo, "Fiche_complete.md"), ctx.donnees.pour(pseudo).apercu().catch(() => null)]);
+  const retour = h("a", { class: "jr-retour", href: "#/mj/joueurs" }, icon("back", 18), "Joueurs");
+  const nom = (apercu && apercu.fiche && apercu.fiche.nom) || nomJoueur(pseudo);
+  const bloc = (titre, doc, nomFichier, ouvert) => {
+    const corps = doc.texte == null
+      ? message(doc.absent ? "Ce JDR ne déclare pas de dossier de coffre par joueur." : `Aucun fichier « ${nomFichier} » au coffre pour ce joueur.`, "info")
+      : h("article", { class: "jr-md mj-corps" }, rendreMarkdown(parseDoc(doc.texte).body));
+    return h("details", { class: "mj-bloc-doc", open: ouvert }, h("summary", null, h("h2", null, titre), h("span", { class: "mj-sommaire-fleche" }, icon("chev_d", 18))), corps);
+  };
+  const page = cadreMJ(ctx, { actif: "joueurs" }, retour,
+    h("div", { class: "mj-doc-tete" }, h("h2", { class: "mj-doc-titre" }, nom), h("p", { class: "jr-meta" }, `Notes du MJ · ${nomJoueur(pseudo)} · jamais visibles par les joueurs`)),
+    (secrets.perime || fiche.perime) ? message(COPIE_ANCIENNE, "alerte") : null,
+    bloc("Secrets du MJ", secrets, "Secrets_MJ.md", true),
+    bloc("Fiche complète (copie du coffre)", fiche, "Fiche_complete.md", false));
   return { page };
 }
