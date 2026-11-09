@@ -101,7 +101,8 @@ export async function verifierRacines(o) { return (await verifierRacinesDetail(o
 /** Comme `verifierRacines`, et renvoie aussi les marqueurs lus : `{ etat, marqueurs: { role: { jdr, role, pseudo } } }` (le pseudo d'un joueur en vient, D27). */
 export async function verifierRacinesDetail({ client, profil, racines }) {
   const etat = {}, marqueurs = {};
-  for (const [role, noeud] of Object.entries(racines)) {
+  // Les dossiers (table, joueur) se vérifient en même temps : le démarrage attend la plus lente, pas la somme.
+  await Promise.all(Object.entries(racines).map(async ([role, noeud]) => {
     try {
       const m = lireMarqueur(await client.lireTexte(noeud, NOM_MARQUEUR));
       // un dossier « joueur » dont le marqueur n'a plus de pseudo valide est traité comme un dossier changé : on le redécouvre (et le problème est dit)
@@ -111,6 +112,6 @@ export async function verifierRacinesDetail({ client, profil, racines }) {
       if (estAuth(e)) throw e;
       etat[role] = e.status === 403 || e.status === 404 ? "acces_retire" : "hors_ligne";
     }
-  }
+  }));
   return { etat, marqueurs };
 }

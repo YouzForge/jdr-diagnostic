@@ -21,6 +21,8 @@ export function creerCache(stockage, empreinteCompte) {
     lire(k) { try { const v = stockage.getItem(p + k); return v == null ? null : JSON.parse(v); } catch { return null; } },
     ecrire(k, v) { try { stockage.setItem(p + k, JSON.stringify(v)); } catch { /* stockage plein : tant pis */ } },
     retirer(k) { try { stockage.removeItem(p + k); } catch { /* rien */ } },
+    /** Noms (sans le préfixe du compte) des entrées dont le nom commence par `pre`. */
+    cles(pre) { const out = []; for (const k of stockage.keys()) if (k.startsWith(p + pre)) out.push(k.slice(p.length)); return out; },
     retirerPrefixe(pre) { for (const k of stockage.keys()) if (k.startsWith(p + pre)) stockage.removeItem(k); },
     /** Efface TOUTES les copies de cette application sur l'appareil, tous comptes confondus (déconnexion). */
     viderTout() { for (const k of stockage.keys()) if (k.startsWith(PREFIXE)) stockage.removeItem(k); }

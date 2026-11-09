@@ -9,6 +9,7 @@ export * from "./racines/marqueur.js";
 export * from "./racines/racines.js";
 export * from "./depot/depot.js";
 export * from "./depot/cache.js";
+export * from "./depot/stockage_persistant.js";
 export * from "./collections/charger.js";
 export * from "./auth/auth.js";
 export { lancerDiagnostic } from "./diagnostic/diagnostic.js";

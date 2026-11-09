@@ -77,6 +77,9 @@ export function feuille(titre, corps, { surFermeture, large = false } = {}) {
   return fermer;
 }
 
+/** Vrai si une fenêtre est ouverte (un redessin de l'écran en dessous attend qu'elle soit fermée). */
+export const feuilleOuverte = () => pileFeuilles.length > 0;
+
 /** Ferme toutes les fenêtres ouvertes (du dessus vers le dessous). */
 export function fermerFeuilles() { for (const f of [...pileFeuilles].reverse()) f(); }
 

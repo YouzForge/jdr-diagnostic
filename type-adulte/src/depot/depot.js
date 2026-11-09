@@ -80,6 +80,23 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
 
   const hors = e => !e.status || e.status >= 500;
   const sceller = (k, v) => { if (cache) cache.ecrire(k, v); };
+  /** Une liste lue sur le réseau fait foi : les copies de fichiers et de sous-dossiers qui n'y figurent plus (supprimés ailleurs) sont effacées de l'appareil. */
+  const elaguer = (chemin, liste) => {
+    if (!cache || typeof cache.cles !== "function") return;
+    const fichiers = new Set(liste.filter(x => !x.dir).map(x => x.name)), dossiers = new Set(liste.filter(x => x.dir).map(x => x.name));
+    for (const pre of ["tx:", "sg:", "ls:"]) {
+      const tete = pre + chemin + "/";
+      for (const k of cache.cles(tete)) {
+        const reste = k.slice(tete.length), i = reste.indexOf("/");
+        if (i < 0 ? !(fichiers.has(reste) || (pre === "ls:" && dossiers.has(reste))) : !dossiers.has(reste.slice(0, i))) cache.retirer(k);
+      }
+    }
+  };
+  /**
+   * Signature d'un élément d'un listing : la version OneDrive (eTag) si elle est donnée, sinon date de modification + taille. Elle change quand le
+   * contenu change ; deux fichiers de même signature n'ont pas besoin d'être relus.
+   */
+  const signature = x => x.etag || (x.modifie ? x.modifie + "|" + (x.size || 0) : "");
 
   /**
    * Où et si l'on a le droit d'ÉCRIRE ce chemin (D30). Toutes les écritures passent ici, avant tout appel à OneDrive.
@@ -151,7 +168,9 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
     if (typeof texte !== "string") throw new TypeError("Texte attendu");
     if (new TextEncoder().encode(texte).length > TAILLE_MAX_OCTETS) throw new AccesRefuse("Fichier trop volumineux", "trop_gros");
   }
-  const apresEcriture = (chemin, texte) => { if (cache) { cache.ecrire("tx:" + chemin, texte); cache.retirerPrefixe("ls:"); } };
+  // Après une écriture, seule la liste du dossier parent n'est plus fiable (le fichier y est nouveau, changé ou retiré) ; les autres listes gardent leur copie.
+  const parent = chemin => chemin.split("/").slice(0, -1).join("/");
+  const apresEcriture = (chemin, texte) => { if (cache) { cache.ecrire("tx:" + chemin, texte); cache.retirer("sg:" + chemin); cache.retirer("ls:" + parent(chemin)); } };
 
   /** 404 à l'écriture : partage retiré, ou dossier accessible mais écriture refusée (relevé réel sur un dossier en lecture). */
   async function proteger(r, action) {
@@ -179,10 +198,12 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
         const l = await client.lister(noeud, rel);
         if (l === null) {
           if (!(await client.existe(noeud))) throw new AccesRetire();
+          if (cache) { sceller(k, []); }
           return { donnees: [], perime: false, absent: true };
         }
-        const donnees = l.map(x => ({ name: x.name, dir: x.dir, size: x.size }));
+        const donnees = l.map(x => ({ name: x.name, dir: x.dir, size: x.size, sig: signature(x) }));
         sceller(k, donnees);
+        elaguer(chemin, donnees);
         return { donnees, perime: false, absent: false };
       } catch (e) {
         const c = cache && hors(e) ? cache.lire(k) : null;
@@ -191,14 +212,23 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
       }
     },
 
-    /** Texte d'un fichier. → { texte, perime } (texte = null s'il n'existe pas) */
-    async lire(chemin) {
+    /**
+     * Texte d'un fichier. → { texte, perime } (texte = null s'il n'existe pas).
+     * `sig` : la signature de ce fichier dans un listing que l'on vient de lire SUR LE RÉSEAU (jamais celle d'une copie) ; si la copie locale du texte
+     * a été lue avec cette même signature, le fichier n'a pas changé et n'est pas retéléchargé.
+     */
+    async lire(chemin, { sig = "" } = {}) {
       const { noeud, rel } = resoudre(chemin);
-      const k = "tx:" + chemin;
+      const k = "tx:" + chemin, ks = "sg:" + chemin;
+      if (sig && cache) {
+        const t = cache.lire(k);
+        if (t != null && cache.lire(ks) === sig) return { texte: t, perime: false };
+      }
       try {
         const t = await client.lireTexte(noeud, rel);
         if (t === null && !(await client.existe(noeud))) throw new AccesRetire();
-        if (t !== null) sceller(k, t);
+        if (t !== null) { sceller(k, t); if (sig) sceller(ks, sig); else if (cache) cache.retirer(ks); }
+        else if (cache) { cache.retirer(k); cache.retirer(ks); }   // le fichier n'existe plus : sa copie ne doit pas ressusciter
         return { texte: t, perime: false };
       } catch (e) {
         const c = cache && hors(e) ? cache.lire(k) : null;
@@ -206,6 +236,15 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
         throw e;
       }
     },
+
+    /**
+     * Lectures de la COPIE LOCALE seule, sans réseau (affichage immédiat, puis revalidation par `lister` / `lire`). Les mêmes refus d'accès que la lecture normale
+     * s'appliquent. → le contenu, ou `null` s'il n'y a pas de copie.
+     */
+    listerCopie(chemin) { resoudre(chemin); return cache ? cache.lire("ls:" + chemin) : null; },
+    lireCopie(chemin) { resoudre(chemin); return cache ? cache.lire("tx:" + chemin) : null; },
+    /** Efface toute copie locale (accès retiré : jamais de copie d'un dossier dont l'accès est coupé). */
+    oublierCopies() { if (cache) { cache.retirer("racines"); cache.retirer("memoire_ok"); for (const p of ["ls:", "tx:", "sg:"]) cache.retirerPrefixe(p); } },
 
     /**
      * Fiche + version pour modifier ou supprimer. → { texte, etag } ou `null` si absente. Jamais servie depuis la copie locale :
@@ -243,7 +282,7 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
       if (typeof etag !== "string" || !etag) throw new TypeError("La version lue (etag) est obligatoire pour supprimer");
       const fait = await proteger(r, () => client.supprimer(r.noeud, r.rel, { etag }));
       if (!fait && !(await client.existe(r.noeud))) throw new AccesRetire();
-      if (cache) { cache.retirer("tx:" + chemin); cache.retirerPrefixe("ls:"); }
+      if (cache) { cache.retirer("tx:" + chemin); cache.retirer("sg:" + chemin); cache.retirer("ls:" + parent(chemin)); }
     },
 
     /**
@@ -253,14 +292,14 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
     async creerDossier(chemin) {
       const r = resoudreDossierSac(chemin);
       const res = await proteger(r, () => client.creerDossier(r.noeud, r.rel));
-      if (cache) cache.retirerPrefixe("ls:");
+      if (cache) cache.retirer("ls:" + parent(chemin));
       return res;
     },
     async renommerDossier(chemin, nouveauNom) {
       const r = resoudreDossierSac(chemin);
       verifierNomDossier(nouveauNom);
       const res = await proteger(r, () => client.renommer(r.noeud, r.rel, nouveauNom));
-      if (cache) { cache.retirerPrefixe("ls:"); cache.retirerPrefixe("tx:" + r.rel + "/"); }
+      if (cache) { cache.retirer("ls:" + parent(chemin)); cache.retirer("ls:" + chemin); for (const p of ["ls:", "tx:", "sg:"]) cache.retirerPrefixe(p + chemin + "/"); }
       return res;
     },
     /** Supprime un dossier du sac SEULEMENT s'il est vide (corbeille OneDrive). L'appelant demande confirmation AVANT. */
@@ -271,7 +310,7 @@ export function creerDepot({ client, profil, role, racines, cache = null, ecritu
       if (contenu.length) throw new AccesRefuse("Ce dossier n'est pas vide", "dossier_non_vide");
       const info = await client.infos(r.noeud, r.rel);
       const fait = await proteger(r, () => client.supprimer(r.noeud, r.rel, info && info.etag ? { etag: info.etag } : {}));
-      if (cache) cache.retirerPrefixe("ls:");
+      if (cache) { cache.retirer("ls:" + parent(chemin)); cache.retirer("ls:" + chemin); }
       return fait;
     },
 

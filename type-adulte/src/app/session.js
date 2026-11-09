@@ -20,11 +20,14 @@ async function lireMemoireDistante(client, profil, attendus) {
   try { const t = await client.lireFichierApp(nomMemoire(profil.id)); return { texte: t, racines: t == null ? {} : lireMemoire(t, profil.id, attendus) }; }
   catch (e) { if (estAuth(e)) throw e; return { texte: undefined, racines: {} }; }
 }
-async function sauvegarderMemoire(client, profil, racines, texteConnu) {
+/** La copie du joueur dans son OneDrive est relue et corrigée une fois ; l'appareil retient ce qu'il y a vu (`memoire_ok`) et n'y retourne pas à chaque lancement. */
+async function sauvegarderMemoire(client, profil, racines, texteConnu, cache) {
   try {
     const voulu = ecrireMemoire(profil.id, racines);
+    if (cache && cache.lire("memoire_ok") === voulu) return;
     const actuel = texteConnu !== undefined ? texteConnu : await client.lireFichierApp(nomMemoire(profil.id));
     if (actuel !== voulu) await client.ecrireFichierApp(nomMemoire(profil.id), voulu);
+    if (cache) cache.ecrire("memoire_ok", voulu);
   } catch (e) { if (estAuth(e)) throw e; }
 }
 
@@ -70,7 +73,7 @@ export async function ouvrirSession({ auth, client, profil, allowed, stockage, l
     const retires = Object.entries(etat).filter(([, v]) => v === "acces_retire" || v === "marqueur_change");
     if (retires.length) {
       problemes = retires.map(([role, v]) => ({ type: v, role }));
-      cache.retirer("racines"); cache.retirerPrefixe("ls:"); cache.retirerPrefixe("tx:");   // jamais de copie d'un dossier dont l'accès est coupé
+      cache.retirer("racines"); cache.retirer("memoire_ok"); cache.retirerPrefixe("ls:"); cache.retirerPrefixe("tx:"); cache.retirerPrefixe("sg:");   // jamais de copie d'un dossier dont l'accès est coupé
       for (const [role] of retires) delete memo[role];
     } else {
       racines = memo; horsLigne = Object.values(etat).includes("hors_ligne");
@@ -89,6 +92,6 @@ export async function ouvrirSession({ auth, client, profil, allowed, stockage, l
       return { ...base, statut: "a_relier", problemes, manque: attendus.filter(x => !r.racines[x]) };
     }
   }
-  await sauvegarderMemoire(client, profil, racines, texteDistant);
+  await sauvegarderMemoire(client, profil, racines, texteDistant, cache);
   return { ...base, pseudo: racines.joueur && racines.joueur.pseudo, statut: "pret", problemes, horsLigne, depot: creerDepot({ client, profil, role: "joueur", racines, cache, ecriture: ecriture === true }) };
 }

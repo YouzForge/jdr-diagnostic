@@ -114,7 +114,7 @@ export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, 
     return out;
   }
 
-  const SELECT = "$select=id,name,size,folder,file,lastModifiedDateTime,parentReference,remoteItem";
+  const SELECT = "$select=id,name,size,folder,file,eTag,lastModifiedDateTime,parentReference,remoteItem";
 
   const api = {
     /** Contenu d'un dossier. → [{ name, dir, size, id, driveId, modifie, remote }] ; `null` si le dossier n'existe pas. */
@@ -126,7 +126,7 @@ export function creerClientGraph({ fetch: fetchFn, getToken, attendre = dormir, 
           return {
             name: x.name, dir: !!(x.folder || (ri && ri.folder)), size: x.size || 0, id: x.id,
             driveId: (ri ? ri.parentReference && ri.parentReference.driveId : x.parentReference && x.parentReference.driveId) || null,
-            idCible: ri ? ri.id : x.id, remote: !!ri, modifie: x.lastModifiedDateTime || null
+            idCible: ri ? ri.id : x.id, remote: !!ri, modifie: x.lastModifiedDateTime || null, etag: x.eTag || null
           };
         });
       } catch (e) { if (e.status === 404) return null; throw e; }

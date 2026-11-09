@@ -6,16 +6,18 @@ import { creerDonneesJoueur } from "../../src/joueur/donnees.js";
 import { nature, issue } from "../../src/joueur/geste.js";
 import { reglesD100 } from "../../src/joueur/d100.js";
 import { listerJoueurs } from "../../src/app/bibliotheque.js";
-import { h, icon, attente, message, urlImage, viderImages, feuille } from "./ui.js";
+import { h, icon, attente, message, urlImage, viderImages, feuille, feuilleOuverte } from "./ui.js";
 import { ouvrirJet } from "./jet.js";
 import { ecranFiche, ecranCompetences } from "./ecrans_fiche.js";
 import { ecranSacDossiers, ecranSacTout, ecranSacDossier } from "./ecrans_sac.js";
 import { ecranSavoirs, ecranQuetes, ecranNotes, ecranJournal, ecranRencontres, ecranRencontre } from "./ecrans_savoirs.js";
 import { ecranCarte } from "./ecrans_carte.js";
 import { ecranRecherche } from "./ecrans_recherche.js";
+import { creerStockageImages } from "./stockage_images.js";
 
 const dec = decodeURIComponent;
-const FRAICHEUR_MS = 60_000;   // une lecture est réutilisée une minute ; « Actualiser » (menu du nom) et le retour au premier plan la rafraîchissent
+const FRAICHEUR_MS = 60_000;   // une lecture est réutilisée une minute en mémoire de page ; « Actualiser » (menu du nom) et le retour au premier plan la rafraîchissent
+const ATTENTE_REDESSIN_MS = 1_000;
 
 /** Les quatre onglets. `portee` : écrans qui allument l'onglet. */
 const ONGLETS = [
@@ -65,7 +67,9 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
     panneau: "ferme"
   };
 
-  /* ---- Données : un seul jeu de lectures partagé par les écrans, valable une minute ---- */
+  /* ---- Données ----
+   * La couche de données (src/joueur/donnees.js) garde en mémoire de page ses lectures et affiche d'abord la copie locale ; elle prévient (`surMiseAJour`)
+   * quand la vérification en arrière-plan a trouvé du nouveau. Ici : l'index de recherche (calculé à partir de plusieurs lectures) et le redessin discret. */
   const caches = new Map();
   const unique = (nom, f) => {
     const c = caches.get(nom);
@@ -74,15 +78,50 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
     caches.set(nom, { t: Date.now(), p });
     return p;
   };
-  ctx.charger = () => unique("fiche", () => ctx.donnees.fiche());
-  ctx.chargerEtiquettes = () => unique("etiquettes", () => ctx.donnees.etiquettes());
+  ctx.charger = () => ctx.donnees.fiche();
+  ctx.chargerEtiquettes = () => ctx.donnees.etiquettes();
   ctx.chargerIndex = () => unique("index", () => ctx.donnees.index());
-  ctx.vider = () => { caches.clear(); };
+  ctx.vider = () => { caches.clear(); if (ctx.donnees) ctx.donnees.invalider(); };
   /** Après une écriture : relit tout et redessine l'écran courant. */
-  ctx.reafficher = async () => { const y = window.scrollY; caches.clear(); await afficher(); window.scrollTo(0, y); };
+  ctx.reafficher = async () => { const y = window.scrollY; ctx.vider(); await afficher(); window.scrollTo(0, y); };
+
+  /** La vérification en arrière-plan a trouvé un changement : l'écran se redessine à la même place, sans toucher à ce que le joueur est en train de faire. */
+  let redessin = null, enAttente = false, imagesChangees = false;
+  const occupe = () => {
+    if (feuilleOuverte()) return true;
+    const a = document.activeElement, t = a && a.tagName;
+    return t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || !!(a && a.isContentEditable);
+  };
+  function planifierRedessin(delai = 150) {
+    if (redessin) return;
+    redessin = setTimeout(async function essai() {
+      redessin = null;
+      if (document.hidden) { enAttente = true; return; }                              // au retour au premier plan
+      if (occupe()) { redessin = setTimeout(essai, ATTENTE_REDESSIN_MS); return; }    // fenêtre ouverte ou saisie en cours : on attend
+      enAttente = false;
+      const y = window.scrollY;
+      caches.clear();
+      if (imagesChangees) { imagesChangees = false; viderImages(); }   // une image a changé ailleurs : les adresses mémorisées sont relues dans la copie locale
+      await afficher();
+      window.scrollTo(0, y);
+    }, delai);
+  }
+  function arreterRedessin() { if (redessin) { clearTimeout(redessin); redessin = null; } enAttente = false; }
+  function surMiseAJour(info) {
+    if (info && info.erreur) {
+      arreterRedessin(); caches.clear(); viderImages();
+      return surErreur(info.erreur);   // reconnexion (401) ou accès retiré : même chemin que pour une lecture qui échoue
+    }
+    if (info && info.images) imagesChangees = true;
+    planifierRedessin();
+  }
+  const imagesLocales = auth && auth.empreinte ? creerStockageImages(window, auth.empreinte()) : null;   // copie locale des images, par compte (null si le navigateur n'a pas Cache Storage)
   function ouvrirDonnees(pseudo) {
-    caches.clear(); viderImages();
-    ctx.donnees = creerDonneesJoueur({ profil, depot: ctx.session.depot, role: estMJ() ? "mj" : "joueur", pseudo, ecriture: ecriture === true });
+    caches.clear(); viderImages(); arreterRedessin();
+    ctx.donnees = creerDonneesJoueur({ profil, depot: ctx.session.depot, role: estMJ() ? "mj" : "joueur", pseudo, ecriture: ecriture === true, images: imagesLocales });
+    ctx.donnees.surMiseAJour(surMiseAJour);
+    // Les autres onglets se lisent pendant que le joueur regarde le premier : le changement d'onglet est alors immédiat.
+    if (typeof ctx.donnees.prechauffer === "function") setTimeout(() => { ctx.donnees.prechauffer().catch(e => { if (e && (e.status === 401 || e.auth)) surErreur(e); }); }, 300);
   }
   if (!estMJ()) ouvrirDonnees(session.pseudo || "");
   else if (lireSession("voir")) ouvrirDonnees(lireSession("voir"));
@@ -91,7 +130,7 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
   function menu(fiche) {
     const fermer = feuille("Menu", h("div", { class: "jr-menu" },
       h("p", { class: "jr-meta" }, estMJ() ? `Tu vois l'application comme : ${ctx.donnees.pseudo.replace(/_/g, " ")}` : (fiche && fiche.nom) || ctx.donnees.pseudo || ""),
-      h("button", { class: "jr-bouton", onclick: () => { fermer(); ctx.vider(); viderImages(); afficher(); } }, icon("clock", 18), "Actualiser"),
+      h("button", { class: "jr-bouton", onclick: () => { fermer(); ctx.vider(); ctx.donnees.actualiser(); viderImages(); afficher(); } }, icon("clock", 18), "Actualiser"),
       estMJ() ? h("button", { class: "jr-bouton", onclick: () => { fermer(); ecrireSession("voir", null); location.hash = "#/mj"; } }, icon("user", 18), "Changer de joueur") : null,
       estMJ() && versMoteur ? h("button", { class: "jr-bouton", onclick: () => { fermer(); versMoteur(); } }, icon("scroll", 18), "Listes du moteur (MJ)") : null,
       h("button", { class: "jr-bouton", onclick: () => { fermer(); deconnecter(); } }, icon("lock", 18), "Se déconnecter")));
@@ -204,12 +243,18 @@ export function demarrerJoueur({ profil, session, auth, deconnecter, versMoteur,
         h("button", { class: "jr-bouton", onclick: () => afficher() }, "Réessayer"), h("a", { class: "jr-bouton", href: "#/" }, "Accueil")));
     }
   }
-  window.addEventListener("hashchange", afficher);
+  const surChangementDeRoute = () => { arreterRedessin(); afficher(); };
+  window.addEventListener("hashchange", surChangementDeRoute);
   let masqueA = 0;
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) masqueA = Date.now();
-    else if (masqueA && Date.now() - masqueA > FRAICHEUR_MS) { ctx.vider(); }   // la prochaine lecture sera fraîche ; l'écran affiché n'est pas rechargé sous les doigts du joueur
+    if (document.hidden) { masqueA = Date.now(); return; }
+    if (masqueA && Date.now() - masqueA > FRAICHEUR_MS && ctx.donnees) {
+      // Retour au premier plan après une pause : on revérifie sur le réseau en silence ; si quelque chose a changé, l'écran se redessine (surMiseAJour).
+      ctx.vider(); ctx.donnees.actualiser();
+      ctx.donnees.prechauffer().catch(e => { if (e && (e.status === 401 || e.auth)) surErreur(e); });
+    }
+    if (enAttente) planifierRedessin();
   });
   afficher();
-  return { ctx, afficher, arreter() { window.removeEventListener("hashchange", afficher); document.body.classList.remove("joueur"); racine.replaceChildren(); } };
+  return { ctx, afficher, arreter() { arreterRedessin(); window.removeEventListener("hashchange", surChangementDeRoute); document.body.classList.remove("joueur"); racine.replaceChildren(); } };
 }

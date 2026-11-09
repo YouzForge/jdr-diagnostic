@@ -2,10 +2,12 @@
 // Toute la logique est dans `src/` (testée dans Node) ; ici, seulement l'affichage. RÈGLE : jamais de innerHTML, uniquement du texte
 // (un test vérifie cette règle) : une fiche ne peut donc ni exécuter de code ni charger d'image.
 import { creerAuthNavigateur, creerClientGraph, chargerProfil, ouvrirSession, bibliotheque, listerJoueurs, collectionsVisibles,
-  validerAutorisations, AccesRefuse, creerStockageNavigateur, cheminCollection, peutEcrire, modeleFormulaire, ouvrirPourModifier,
+  validerAutorisations, AccesRefuse, creerStockageNavigateur, creerStockagePersistant, ouvrirMagasinIndexedDB, cheminCollection, peutEcrire, modeleFormulaire, ouvrirPourModifier,
   enregistrerModification, enregistrerCreation, supprimerFiche, messageEcriture } from "../src/index.js";
 
 import { icone } from "./icones.js";
+import { PRECHARGE } from "./precharge.js";
+import { purgerImages } from "./joueur/stockage_images.js";
 
 const $ = id => document.getElementById(id);
 const h = (tag, attrs, ...enfants) => {
@@ -17,7 +19,32 @@ const h = (tag, attrs, ...enfants) => {
 
 let auth, profil, allowed, session = null, client = null;
 let nav = 0;   // numéro de la navigation en cours : une réponse lente d'un ancien écran ne doit jamais remplacer l'écran actuel
-const stockage = creerStockageNavigateur(window.localStorage);
+/** Copie locale : IndexedDB (grande, reprend les anciennes copies de localStorage) ; si le navigateur la refuse ou tarde trop, localStorage comme avant. */
+async function ouvrirStockage() {
+  try {
+    if (!window.indexedDB) throw new Error("pas d'IndexedDB");
+    const delai = new Promise((_, ko) => setTimeout(() => ko(new Error("IndexedDB trop lente")), 3000));
+    const s = await Promise.race([creerStockagePersistant({ magasin: ouvrirMagasinIndexedDB(window.indexedDB), ls: window.localStorage }), delai]);
+    window.addEventListener("pagehide", () => { s.vider(); });
+    return s;
+  } catch { return creerStockageNavigateur(window.localStorage); }
+}
+// Mode mesure (?perf=1) : compte les requêtes et le temps de chaque écran, pour mesurer sans deviner. Chargé seulement à la demande.
+if (/[?&]perf=1(&|$)/.test(location.search)) { try { (await import("./mesure.js")).demarrerMesure(window); } catch { /* la mesure est facultative */ } }
+// Le profil se télécharge pendant que la copie locale s'ouvre ; la connexion démarre dès que la copie locale est prête (elle n'a besoin ni du profil ni du réseau).
+const profilEnCours = chargerLeProfil();
+profilEnCours.catch(() => { /* l'erreur est rendue par demarrer() */ });
+const stockage = await ouvrirStockage();
+const connexionEnCours = (async () => {
+  const { auth: a } = await creerAuthNavigateur(window, window.JDR_APP, { stockage });
+  await a.init();
+  return a;
+})();
+connexionEnCours.catch(() => { /* idem */ });
+/** Annonce au navigateur les modules de ce type d'application : ils se téléchargent tous ensemble au lieu d'un niveau d'import après l'autre. */
+function precharger(application) {
+  for (const href of PRECHARGE[application] || []) document.head.append(h("link", { rel: "modulepreload", href }));
+}
 const mots = () => profil.vocabulaire || {};
 const ecritureActive = () => window.JDR_APP.ecriture === true;     // interrupteur de la configuration : éteint par défaut
 const peutModifier = col => ecritureActive() && peutEcrire(profil, session.role, col);
@@ -292,6 +319,8 @@ function gerer(e) {
 async function lancer(liens = [], message) {
   try {
     session = await ouvrirSession({ auth, client, profil, allowed, stockage, liens, cheminMJ: window.JDR_APP.racineMJ || undefined, ecriture: ecritureActive() });
+    // un accès retiré efface aussi les images gardées sur l'appareil (D46, T6)
+    if (session.problemes.some(p => p.type === "acces_retire" || p.type === "marqueur_change")) purgerImages(window, auth.empreinte()).catch(() => { /* rien à effacer */ });
     entete();
     if (session.statut === "a_relier") return await ecranLiaison(session, message);
     if (session.statut === "dossier_mj_introuvable") return montrer(session.problemes.map(p => bandeau(PROBLEMES[p.type](p), "erreur")));
@@ -335,15 +364,15 @@ async function chargerLeProfil() {
 
 async function demarrer() {
   try {
-    profil = await chargerLeProfil();
+    profil = await profilEnCours;
     document.title = profil.nom; $("titre").textContent = profil.nom;
     const hab = profil.theme && HABILLAGES.includes(profil.theme.habillage) ? profil.theme.habillage : "sobre";
     document.documentElement.dataset.habillage = hab;
     if (hab === "conte") document.head.append(h("meta", { name: "theme-color", content: "#F4E8D3" }));
     if (profil.theme && profil.theme.palette) document.documentElement.dataset.palette = String(profil.theme.palette).replace(/[^a-z0-9_-]/gi, "");
+    precharger(profil.application);
     allowed = validerAutorisations(window.JDR_APP.allowed);
-    ({ auth } = await creerAuthNavigateur(window, window.JDR_APP));
-    await auth.init();
+    auth = await connexionEnCours;
     client = creerClientGraph({ fetch: (...a) => window.fetch(...a), getToken: () => auth.getToken() });
   } catch (e) { return montrer(bandeau("Impossible de démarrer : " + (e && e.message ? e.message : "erreur"), "erreur")); }
   $("btnDeconnexion").onclick = () => sortir();

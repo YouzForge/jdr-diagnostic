@@ -40,7 +40,7 @@ const NOM_SIMPLE = /^(?!00_)[^/\\:?*"<>|\u0000-\u001f]{1,120}\.md$/i;
  * `ecriture` : interrupteur d'écriture du JDR (faux par défaut). Seul le JOUEUR écrit, et seulement dans son dossier ; le MJ qui « voit comme »
  * un joueur lit sans jamais écrire (les actions refusent avec la raison `lecture_seule_mj`).
  */
-export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = false }) {
+export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = false, delaiRevalidation = 15_000, fraicheurMemo = 60_000, images = null }) {
   if (role !== "joueur" && role !== "mj") throw new TypeError("Rôle inconnu : " + role);
   if (role === "mj" && !pseudo) throw new TypeError("Le MJ doit choisir un joueur à voir");
   const sec = profil.securite || {};
@@ -52,71 +52,174 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
     const r = await depot.lister(chemin);
     return { fichiers: r.absent ? [] : r.donnees, perime: !!r.perime, absent: !!r.absent };
   }
-  async function lire(chemin) { const r = await depot.lire(chemin); return { texte: r.texte, perime: !!r.perime }; }
+  async function lire(chemin, opts) { const r = await depot.lire(chemin, opts); return { texte: r.texte, perime: !!r.perime }; }
 
-  /** Lit tous les fichiers .md d'un dossier avec `lecteur(texte, nom)`. → { items, perime } ; dossier absent ou non déclaré = liste vide. */
-  async function dossier(chemin, lecteur, { sousDossier = "", zone = "" } = {}) {
+  // ---------------------------------------------------------------- Copie d'abord (D46)
+  // Un écran s'ouvre tout de suite avec la dernière copie locale connue ; en arrière-plan, UNE requête par dossier compare les signatures des fichiers
+  // (version OneDrive) et ne retélécharge que ce qui a changé. Si quelque chose a changé, l'écran en est prévenu (`surMiseAJour`) et se redessine.
+  // Sans copie (première ouverture, après une écriture dans ce dossier), la lecture passe par le réseau, mais un fichier de signature inchangée n'est pas relu.
+  // Accès retiré (404 sur le dossier lui-même) : toutes les copies sont effacées au même instant et l'écran en est prévenu : jamais de copie d'un accès coupé.
+  const rapide = typeof depot.listerCopie === "function" && typeof depot.lireCopie === "function";
+  let ecoute = null, horsLigne = false;
+  const memo = new Map(), enCours = new Map(), dernier = new Map();
+  const serial = x => JSON.stringify(x, (k, v) => (v instanceof Map ? [...v] : (k === "perime" || k === "copie" ? undefined : v)));
+  const invalider = () => { memo.clear(); };
+  const notifier = info => { if (ecoute) { try { ecoute(info || {}); } catch (e) { /* l'écran gère ses propres erreurs */ } } };
+  /** Une seule lecture par nom pendant `fraicheurMemo` : les écrans qui demandent la même chose se partagent le résultat. */
+  const memoiser = (nom, f) => {
+    const c = memo.get(nom);
+    if (c && Date.now() - c.t < fraicheurMemo) return c.p;
+    const p = Promise.resolve().then(f).catch(e => { memo.delete(nom); throw e; });
+    memo.set(nom, { t: Date.now(), p });
+    return p;
+  };
+  /** Vérifie en arrière-plan que la copie affichée (`avant`) est à jour ; `tache()` relit sur le réseau et rend le résultat frais. */
+  function revalider(cle, tache, avant, info = {}) {
+    if (enCours.has(cle)) return;
+    if (Date.now() - (dernier.get(cle) ?? -Infinity) < delaiRevalidation) return;
+    const p = (async () => {
+      try {
+        const n = await tache();
+        dernier.set(cle, Date.now());
+        const change = serial(n) !== serial(avant), etaitHors = horsLigne;
+        horsLigne = !!n.perime;
+        if (change || etaitHors !== horsLigne) { invalider(); notifier(change ? info : {}); }
+      } catch (e) {
+        if (estAuth(e)) notifier({ erreur: e });
+        else if (e instanceof AccesRetire || (e && e.status === 403)) { if (depot.oublierCopies) depot.oublierCopies(); if (images && images.vider) images.vider(); invalider(); dernier.clear(); notifier({ erreur: e }); }
+        else if (!e || !e.status || e.status >= 500) { if (!horsLigne) { horsLigne = true; invalider(); notifier({}); } }   // réseau absent : la copie reste affichée, marquée « périmée »
+        // autre refus (429, 4xx inattendu) : la copie reste affichée, la vérification sera retentée à la prochaine lecture
+      } finally { enCours.delete(cle); }
+    })();
+    enCours.set(cle, p);
+  }
+  /** `copie()` rend le résultat tiré des copies locales, ou `null` s'il en manque ; `reseau()` rend le résultat complet par le réseau. */
+  async function avecCopie(cle, copie, reseau) {
+    const c = rapide ? copie() : null;
+    if (c) { revalider(cle, reseau, c); return c; }
+    return reseau();
+  }
+  /** Au plus `n` lectures de fichiers en même temps pour tout l'écran (les dossiers du sac se lisent ensemble). */
+  const limite = (n => { let actifs = 0; const file = []; const suite = () => { while (actifs < n && file.length) { actifs++; const { f, ok, ko } = file.shift(); f().then(ok, ko).finally(() => { actifs--; suite(); }); } }; return f => new Promise((ok, ko) => { file.push({ f, ok, ko }); suite(); }); })(8);
+
+  const noms = (ls) => ls.filter(f => !f.dir && MARKDOWN.test(f.name)).map(f => f.name).sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
+  const sousDossiers = (ls) => ls.filter(f => f.dir).map(f => f.name).sort((a, b) => a.localeCompare(b, "fr"));
+
+  /** Dossier lu depuis les copies locales : `null` s'il manque la liste ou un seul des textes. */
+  function copieDossier(chemin, lecteur, { sousDossier = "", zone = "" } = {}) {
     if (!chemin) return { items: [], perime: false };
-    const ls = await lister(chemin);
+    const ls = depot.listerCopie(chemin);
+    if (!ls) return null;
+    const items = [];
+    for (const nom of noms(ls)) {
+      const t = depot.lireCopie(`${chemin}/${nom}`);
+      if (t == null) return null;
+      items.push({ ...lecteur(t, nom, sousDossier), zone });
+    }
+    return { items, perime: horsLigne, copie: true };
+  }
+  /** Dossier lu sur le réseau : une liste, puis seulement les fichiers dont la signature a changé. `lsConnu` : liste déjà lue à l'instant (évite de la relire). */
+  async function reseauDossier(chemin, lecteur, { sousDossier = "", zone = "" } = {}, lsConnu = null) {
+    if (!chemin) return { items: [], perime: false };
+    const ls = lsConnu || await lister(chemin);
     let perime = ls.perime;
-    const noms = ls.fichiers.filter(f => !f.dir && MARKDOWN.test(f.name)).map(f => f.name).sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
-    const items = (await pool(noms, async nom => {
-      const r = await lire(`${chemin}/${nom}`);
+    const parNom = new Map(ls.fichiers.map(f => [f.name, f]));
+    const items = (await pool(noms(ls.fichiers), nom => limite(async () => {
+      const r = await lire(`${chemin}/${nom}`, { sig: parNom.get(nom).sig || "" });
       if (r.perime) perime = true;
       return r.texte == null ? null : { ...lecteur(r.texte, nom, sousDossier), zone };
-    }, 6)).filter(Boolean);
+    }), 6)).filter(Boolean);
     return { items, perime };
+  }
+  /** Lit tous les fichiers .md d'un dossier avec `lecteur(texte, nom)`. → { items, perime } ; dossier absent ou non déclaré = liste vide. */
+  function dossier(chemin, lecteur, opts = {}) {
+    if (!chemin) return Promise.resolve({ items: [], perime: false });
+    return avecCopie("d:" + chemin, () => copieDossier(chemin, lecteur, opts), () => reseauDossier(chemin, lecteur, opts));
+  }
+  /** Fichier unique : la copie d'abord, puis vérification en arrière-plan. */
+  async function lireAvecCopie(chemin) {
+    const c = rapide ? depot.lireCopie(chemin) : null;
+    if (c != null) { revalider("f:" + chemin, async () => { const r = await lire(chemin); return { texte: r.texte, perime: r.perime }; }, { texte: c }); return { texte: c, perime: horsLigne }; }
+    return lire(chemin);
   }
 
   const api = {
     profil, role, pseudo, dossiers, dansJoueur,
 
-    async fiche() {
-      const r = await lire(dansJoueur(dossiers.fiche));
-      if (r.texte == null) return { fiche: null, perime: r.perime };
-      return { fiche: lireFiche(r.texte, profil), perime: r.perime };
+    /** Prévient l'écran quand la copie affichée n'est plus la bonne : `rappel({})` (données changées ou état du réseau), `rappel({ erreur })` (reconnexion ou accès retiré). */
+    surMiseAJour(rappel) { ecoute = rappel; },
+    /** Oublie ce qui est gardé en mémoire de page (après une écriture) : la prochaine lecture repart de la copie locale. */
+    invalider,
+    /** Comme « Actualiser » : oublie aussi les vérifications récentes, la prochaine lecture revérifie sur le réseau. */
+    actualiser() { invalider(); dernier.clear(); },
+    /** Attend les vérifications en arrière-plan en cours (tests). */
+    attendreVerifications: () => Promise.all([...enCours.values()]),
+    /** Lit les écrans dans l'ordre, un à la fois, pendant que le joueur lit le premier : le changement d'onglet est alors immédiat. */
+    async prechauffer() {
+      for (const t of [api.fiche, api.etiquettes, api.savoirs, api.quetes, api.rencontres, api.journal, api.sac, api.cartes]) {
+        try { await t(); } catch (e) { if (estAuth(e)) throw e; }
+      }
     },
 
-    savoirs: () => dossier(dossiers.savoirs && dansJoueur(dossiers.savoirs), lireElement, { zone: "savoirs" }),
-    quetes: () => dossier(dossiers.quetes && dansJoueur(dossiers.quetes), lireElement, { zone: "quetes" }),
-    notes: () => dossier(dossiers.notes && dansJoueur(dossiers.notes), lireElement, { zone: "notes" }),
-    notesDeJournal: () => dossier(dossiers.journal && dansJoueur(dossiers.journal), lireElement, { zone: "journal" }),
-    rencontres: () => dossier(dossiers.rencontres && dansJoueur(dossiers.rencontres), lireRencontre, { zone: "rencontres" }),
-    recits: () => dossier(dossiers.recits, lireRecit),
+    fiche: () => memoiser("fiche", async () => {
+      const r = await lireAvecCopie(dansJoueur(dossiers.fiche));
+      if (r.texte == null) return { fiche: null, perime: r.perime };
+      return { fiche: lireFiche(r.texte, profil), perime: r.perime };
+    }),
+
+    savoirs: () => memoiser("savoirs", () => dossier(dossiers.savoirs && dansJoueur(dossiers.savoirs), lireElement, { zone: "savoirs" })),
+    quetes: () => memoiser("quetes", () => dossier(dossiers.quetes && dansJoueur(dossiers.quetes), lireElement, { zone: "quetes" })),
+    notes: () => memoiser("notes", () => dossier(dossiers.notes && dansJoueur(dossiers.notes), lireElement, { zone: "notes" })),
+    notesDeJournal: () => memoiser("notesDeJournal", () => dossier(dossiers.journal && dansJoueur(dossiers.journal), lireElement, { zone: "journal" })),
+    rencontres: () => memoiser("rencontres", () => dossier(dossiers.rencontres && dansJoueur(dossiers.rencontres), lireRencontre, { zone: "rencontres" })),
+    recits: () => memoiser("recits", () => dossier(dossiers.recits, lireRecit)),
 
     /** Journal : un bloc par session, avec le récit du MJ (table, lecture seule) et les notes du joueur. → { sessions:[{session, titre, date, recit, notes:[]}], perime } */
-    async journal() {
+    journal: () => memoiser("journal", async () => {
       const [r, n] = await Promise.all([api.recits(), api.notesDeJournal()]);
       const m = new Map();
       const bloc = s => { if (!m.has(s)) m.set(s, { session: s, titre: "", date: "", recit: null, notes: [] }); return m.get(s); };
       for (const x of r.items) { const b = bloc(x.session ?? 0); b.recit = x; b.titre = x.titre; b.date = x.date; }
       for (const x of n.items) { const b = bloc(x.session ?? 0); b.notes.push(x); if (!b.titre) b.titre = x.titre; }
       return { sessions: [...m.values()].sort((a, b) => b.session - a.session), perime: r.perime || n.perime };
-    },
+    }),
 
     /** Sac : les fichiers de chaque sous-dossier d'« Inventaire » (un dossier du joueur) et ceux de la racine (non classés). → { objets, dossiers:[noms], perime } */
-    async sac() {
+    sac: () => memoiser("sac", () => {
       const base = dossiers.inventaire;
       if (!base) return { objets: [], dossiers: [], perime: false };
-      const ls = await lister(dansJoueur(base));
-      let perime = ls.perime;
-      const sous = ls.fichiers.filter(f => f.dir).map(f => f.name).sort((a, b) => a.localeCompare(b, "fr"));
-      const racine = await dossier(dansJoueur(base), (t, nom) => lireObjet(t, nom, ""), { zone: "sac" });
-      perime = perime || racine.perime;
-      const objets = [...racine.items];
-      for (const d of sous) {
-        const r = await dossier(`${dansJoueur(base)}/${d}`, (t, nom) => lireObjet(t, nom, d), { sousDossier: d, zone: "sac" });
-        perime = perime || r.perime;
-        objets.push(...r.items);
-      }
-      return { objets, dossiers: sous, perime };
-    },
+      const chemin = dansJoueur(base);
+      const objetsDe = d => ({ lecteur: (t, nom) => lireObjet(t, nom, d), opts: { sousDossier: d, zone: "sac" } });
+      const copie = () => {
+        const ls = depot.listerCopie(chemin);
+        if (!ls) return null;
+        const sous = sousDossiers(ls), objets = [];
+        for (const d of ["", ...sous]) {
+          const { lecteur, opts } = objetsDe(d);
+          const r = copieDossier(d ? `${chemin}/${d}` : chemin, lecteur, opts);
+          if (!r) return null;
+          objets.push(...r.items);
+        }
+        return { objets, dossiers: sous, perime: horsLigne, copie: true };
+      };
+      // Réseau : une seule liste du dossier de base (pas deux), puis la racine et tous les sous-dossiers ensemble.
+      const reseau = async () => {
+        const ls = await lister(chemin);
+        const sous = sousDossiers(ls.fichiers);
+        const lots = await Promise.all(["", ...sous].map(d => {
+          const { lecteur, opts } = objetsDe(d);
+          return reseauDossier(d ? `${chemin}/${d}` : chemin, lecteur, opts, d ? null : ls);
+        }));
+        return { objets: lots.flatMap(l => l.items), dossiers: sous, perime: lots.some(l => l.perime) };
+      };
+      return avecCopie("sac", copie, reseau);
+    }),
 
     /** Étiquettes posées par le joueur (fichier « Etiquettes.md » de son dossier) : Map(cible normalisée → [étiquettes]). Absent = aucune. */
-    async etiquettes() {
-      const r = await lire(dansJoueur(NOM_ETIQUETTES));
+    etiquettes: () => memoiser("etiquettes", async () => {
+      const r = await lireAvecCopie(dansJoueur(NOM_ETIQUETTES));
       return { map: r.texte == null ? new Map() : lireEtiquettes(r.texte), perime: r.perime };
-    },
+    }),
     /**
      * Étiquettes du joueur pour un élément (l'élément lui-même ou un nom de fichier). Une ligne « - zone/fichier » (écrite par l'application) ne vaut que pour
      * cette zone ; une ligne sans zone (écrite à la main) vaut pour tout élément qu'elle désigne par son fichier, son nom sans numéro ou son titre.
@@ -132,15 +235,39 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
     async image(chemin) {
       if (!chemin || !IMAGE.test(chemin) || chemin.split("/").includes("..")) return null;
       const complet = chemin.startsWith(`${sec.table || "Table"}/`) ? chemin : dansJoueur(chemin.startsWith(`${dossiers.images}/`) ? chemin : `${dossiers.images}/${chemin}`);
+      if (!images) { const r = await depot.lireImage(complet); return r ? r.blob : null; }
+      // Copie locale des images (D46) : la copie s'affiche tout de suite ; la liste de son dossier (une requête pour toutes les images du dossier) dit si elle a changé.
+      const i = complet.lastIndexOf("/"), dos = complet.slice(0, i), nom = complet.slice(i + 1);
+      const sigActuelle = async () => {
+        const ls = await memoiser("li:" + dos, () => lister(dos));
+        const f = ls.fichiers.find(x => !x.dir && x.name === nom);
+        return { sig: f ? f.sig || "" : null, perime: ls.perime };
+      };
+      const copie = await images.lire(complet).catch(() => null);
+      if (copie && copie.blob) {
+        revalider("i:" + complet, async () => {
+          const n = await sigActuelle();
+          if (n.sig === null) { await images.retirer(complet); return { sig: null, perime: n.perime }; }          // l'image n'existe plus
+          if (n.sig && n.sig !== copie.sig) { const r = await depot.lireImage(complet); if (r) await images.ecrire(complet, r.blob, n.sig); }
+          return { sig: n.sig, perime: n.perime };
+        }, { sig: copie.sig }, { images: true });
+        return copie.blob;
+      }
+      let sig = "";
+      try { sig = (await sigActuelle()).sig || ""; } catch (e) { if (estAuth(e) || e instanceof AccesRetire) throw e; }
       const r = await depot.lireImage(complet);
-      return r ? r.blob : null;
+      if (!r) return null;
+      if (sig) images.ecrire(complet, r.blob, sig).catch(() => { /* stockage plein : tant pis */ });
+      return r.blob;
     },
 
     /** Cartes du monde (images du dossier des cartes de la table). → { noms:[…], perime } */
-    async cartes() {
-      const ls = await lister(dossiers.cartes);
-      return { noms: ls.fichiers.filter(f => !f.dir && IMAGE.test(f.name)).map(f => f.name).sort((a, b) => a.localeCompare(b, "fr")), perime: ls.perime };
-    },
+    cartes: () => memoiser("cartes", () => {
+      const noms = ls => ls.filter(f => !f.dir && IMAGE.test(f.name)).map(f => f.name).sort((a, b) => a.localeCompare(b, "fr"));
+      return avecCopie("cartes",
+        () => { const ls = depot.listerCopie(dossiers.cartes); return ls ? { noms: noms(ls), perime: horsLigne, copie: true } : null; },
+        async () => { const ls = await lister(dossiers.cartes); return { noms: noms(ls.fichiers), perime: ls.perime }; });
+    }),
     cheminCarte: nom => `${dossiers.cartes}/${nom}`,
 
     /** Index de recherche sur tout ce qui est lisible. Un dossier illisible n'arrête pas la recherche (sauf 401 : reconnexion). */
@@ -194,7 +321,7 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
   const sansMd = f => String(f).replace(/\.md$/i, "");
   const ZONES_ETIQUETTES = ["savoirs", "quetes", "notes", "rencontres", "journal", "sac"];
 
-  Object.assign(api, {
+  const ecritures = {
     /** Pose (ou retire, liste vide) les étiquettes d'un élément : `el` = { zone, fichier, titre? } tel que lu. */
     async poserEtiquettes(el, liste) {
       exigerEcriture();
@@ -291,6 +418,10 @@ export function creerDonneesJoueur({ profil, depot, role, pseudo, ecriture = fal
       await depot.supprimer(chemin, f.etag);
       return true;
     }
-  });
+  };
+  // Toute écriture (réussie ou non) vide la mémoire de page : la lecture suivante repart des copies locales, que l'écriture a mises à jour.
+  for (const [nom, f] of Object.entries(ecritures)) {
+    api[nom] = async (...a) => { try { return await f(...a); } finally { invalider(); } };
+  }
   return api;
 }

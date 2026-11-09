@@ -1,0 +1,51 @@
+// GÉNÉRÉ par outils/precharge.mjs — ne pas modifier à la main (un test vérifie qu'il est à jour).
+// Modules propres à chaque type d'application, annoncés au navigateur dès que le profil est lu (le reste est annoncé dans index.html).
+export const PRECHARGE = {
+  "joueur": [
+    "./joueur/index.js",
+    "../src/joueur/donnees.js",
+    "../src/joueur/geste.js",
+    "../src/joueur/d100.js",
+    "./joueur/ui.js",
+    "./joueur/jet.js",
+    "./joueur/ecrans_fiche.js",
+    "./joueur/ecrans_sac.js",
+    "./joueur/ecrans_savoirs.js",
+    "./joueur/ecrans_carte.js",
+    "./joueur/ecrans_recherche.js",
+    "../src/joueur/fiche.js",
+    "../src/joueur/cartes.js",
+    "../src/joueur/recherche.js",
+    "../src/joueur/ecriture.js",
+    "./conteur/ui.js",
+    "./joueur/edition.js",
+    "./joueur/detail.js",
+    "../src/joueur/sac.js",
+    "../src/joueur/tableaux.js",
+    "../src/conteur/objets.js",
+    "../src/joueur/erreurs.js"
+  ],
+  "conteur": [
+    "./conteur/index.js",
+    "../src/conteur/donnees.js",
+    "./conteur/ui.js",
+    "./conteur/ecrans_enfant.js",
+    "./conteur/ecrans_parent.js",
+    "../src/conteur/heros.js",
+    "../src/conteur/objets.js",
+    "../src/conteur/potions.js",
+    "../src/conteur/voies.js",
+    "./conteur/photo.js",
+    "./conteur/banniere.js",
+    "../src/conteur/etapes.js",
+    "./conteur/ecrans_photos.js",
+    "./conteur/ecrans_notes.js",
+    "./conteur/ecrans_formulaire.js",
+    "./conteur/ecrans_jouer.js",
+    "../src/conteur/controle.js",
+    "../src/conteur/liens.js",
+    "../src/conteur/inbox.js",
+    "../src/conteur/seance.js",
+    "../src/conteur/recap.js"
+  ]
+};
